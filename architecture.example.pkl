@@ -1,0 +1,48 @@
+/// Example architecture definition for a Clean Architecture .NET solution.
+/// Copy to architecture.pkl and adapt to your project.
+amends "pkl/ark.pkl"
+
+layers {
+  new {
+    name = "Presentation"
+    patterns { "*.Api"; "*.Web"; "*.Host" }
+    namespacePatterns { "*.Api.*"; "*.Web.*"; "*.Host.*"; "*.Api"; "*.Web"; "*.Host" }
+  }
+  new {
+    name = "Application"
+    patterns { "*.Application"; "*.UseCases" }
+    namespacePatterns { "*.Application.*"; "*.UseCases.*"; "*.Application"; "*.UseCases" }
+  }
+  new {
+    name = "Domain"
+    patterns { "*.Domain"; "*.Core" }
+    namespacePatterns { "*.Domain.*"; "*.Core.*"; "*.Domain"; "*.Core" }
+  }
+  new {
+    name = "Infrastructure"
+    patterns { "*.Infrastructure"; "*.Persistence"; "*.Adapters" }
+    namespacePatterns { "*.Infrastructure.*"; "*.Persistence.*"; "*.Adapters.*"; "*.Infrastructure"; "*.Persistence"; "*.Adapters" }
+  }
+}
+
+dependencyRules {
+  new { from = "Presentation";   to = "Application";   allowed = true  }
+  new { from = "Application";    to = "Domain";         allowed = true  }
+  new { from = "Infrastructure"; to = "Domain";         allowed = true  }
+  new { from = "Domain";         to = "Application";    allowed = false }
+  new { from = "Domain";         to = "Presentation";   allowed = false }
+  new { from = "Domain";         to = "Infrastructure"; allowed = false }
+  new { from = "Presentation";   to = "Infrastructure"; allowed = false }
+}
+
+packagePolicies {
+  new {
+    layer = "Domain"
+    forbidden {
+      "Microsoft.EntityFrameworkCore"
+      "Microsoft.AspNetCore"
+      "System.Net.Http"
+      "Newtonsoft.Json"
+    }
+  }
+}

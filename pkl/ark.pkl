@@ -1,0 +1,35 @@
+/// Blueprint schema — defines the shape of every architecture.pkl file.
+/// Amend this module in your project's architecture.pkl.
+module Blueprint
+
+/// A logical layer that groups one or more .NET projects.
+class Layer {
+    /// Unique name referenced by DependencyRule and PackagePolicy.
+    name: String
+    /// Glob patterns matched against project names (e.g. "*.Api", "*.Domain").
+    patterns: Listing<String>
+    /// Glob patterns matched against C# namespace declarations for source-level scanning.
+    /// Set these to enable `blueprint check` to also validate `using` directives.
+    /// Example: "MyApp.Domain.*"
+    namespacePatterns: Listing<String>(default = new Listing {})
+}
+
+/// Declares whether a dependency from one layer to another is permitted.
+class DependencyRule {
+    from: String
+    to: String
+    /// true = the edge is allowed; false = blueprint check will error on it.
+    allowed: Boolean
+}
+
+/// Restricts which NuGet packages may appear in a layer.
+class PackagePolicy {
+    layer: String
+    forbidden: Listing<String>
+}
+
+/// ── Root properties ──────────────────────────────────────────────────────────
+
+layers: Listing<Layer>
+dependencyRules: Listing<DependencyRule>
+packagePolicies: Listing<PackagePolicy>(default = new Listing {})

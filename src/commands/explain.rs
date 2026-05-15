@@ -58,9 +58,9 @@ pub fn describe_project(
         let (status, tag) = match rule {
             Some(r) if r.allowed => ("allowed  ", "[explicit]"),
             Some(_)              => ("forbidden", "[explicit]"),
-            None                 => ("forbidden", "[default] "),
+            None                 => ("forbidden", "[default]"),
         };
-        out.push_str(&format!("  → {:<24} {}  {}\n", other.name, status, tag));
+        out.push_str(&format!("  → {:<24} {}  {:<10}\n", other.name, status, tag));
     }
 
     let siblings: Vec<&str> = known_projects.iter()

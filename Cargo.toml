@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2024"
 description = "Architectural boundary enforcer for .NET solutions"
 license = "MIT"
+repository = "https://github.com/TheEskhaton/ark"
+homepage = "https://github.com/TheEskhaton/ark"
+documentation = "https://github.com/TheEskhaton/ark#readme"
+readme = "README.md"
+keywords = ["architecture", "dotnet", "linter", "csharp", "dependencies"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "ark"

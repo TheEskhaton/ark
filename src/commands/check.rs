@@ -2,7 +2,7 @@ use std::path::Path;
 use miette::Result;
 use rayon::prelude::*;
 
-use crate::config::{load_config, ArchitectureConfig, Layer};
+use crate::config::{load_config, ArchitectureConfig};
 use crate::parser::{discover_projects, ProjectFile};
 use crate::report::{CheckReport, Violation};
 use crate::rules::{resolve_layer, resolve_layer_by_namespace, is_ignored};
@@ -248,7 +248,7 @@ fn check_source_rules(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::model::{ArchitectureConfig, DependencyRule, PackagePolicy};
+    use crate::config::model::{ArchitectureConfig, DependencyRule, Layer, PackagePolicy};
     use crate::parser::csproj::{PackageRef, ProjectRef};
 
     fn make_config(
@@ -566,7 +566,7 @@ fn check_package_policies(
 #[cfg(test)]
 mod source_tests {
     use super::*;
-    use crate::config::model::DependencyRule;
+    use crate::config::model::{DependencyRule, Layer};
 
     fn make_ns_config(
         layers: &[(&str, &[&str], &[&str])],

@@ -42,6 +42,8 @@ enum Commands {
         #[arg(long)]
         no_baseline: bool,
     },
+    /// Snapshot current violations into ark-baseline.json for suppression
+    Baseline,
     /// Export the dependency graph
     Graph {
         /// Output format: mermaid (default) or dot
@@ -72,6 +74,9 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Check { strict, no_baseline } => {
             commands::check::run(&cli.root, &cli.config, strict, no_baseline).await
+        }
+        Commands::Baseline => {
+            commands::baseline::run(&cli.root, &cli.config).await
         }
         Commands::Graph { format, output } => {
             commands::graph::run(&cli.root, &cli.config, &format, output.as_deref()).await

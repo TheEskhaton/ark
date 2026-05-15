@@ -8,6 +8,8 @@ pub struct ArchitectureConfig {
     pub dependency_rules: Vec<DependencyRule>,
     #[serde(default)]
     pub package_policies: Vec<PackagePolicy>,
+    #[serde(default)]
+    pub ignore_patterns: Vec<String>,
 }
 
 /// A logical layer that groups projects via glob patterns.

@@ -45,6 +45,8 @@ packagePolicies {
     forbidden { "Microsoft.EntityFrameworkCore"; "System.Net.Http" }
   }
 }
+
+ignorePatterns { "*.Tests"; "*.Specs"; "*.IntegrationTests" }
 "#;
 
 pub async fn run(root: &str) -> Result<()> {

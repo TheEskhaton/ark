@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use crate::config::{load_config, ArchitectureConfig, Layer};
 use crate::parser::{discover_projects, ProjectFile};
 use crate::report::{CheckReport, Violation};
-use crate::rules::{resolve_layer, resolve_layer_by_namespace};
+use crate::rules::{resolve_layer, resolve_layer_by_namespace, is_ignored};
 use crate::scanner;
 
 pub async fn run(root: &str, config_path: &str, strict: bool) -> Result<()> {
@@ -48,6 +48,9 @@ fn check_dependency_rules(
     report: &mut CheckReport,
 ) {
     for project in projects {
+        if is_ignored(&project.name, &config.ignore_patterns) {
+            continue;
+        }
         let Some(from_layer) = resolve_layer(&project.name, &config.layers) else {
             report.warnings.push(format!(
                 "Project '{}' does not match any layer pattern",
@@ -187,6 +190,7 @@ mod tests {
                     forbidden: pkgs.iter().map(|s| s.to_string()).collect(),
                 })
                 .collect(),
+            ignore_patterns: vec![],
         }
     }
 
@@ -401,6 +405,17 @@ mod tests {
         check_package_policies(&projects, &config, &mut report);
         assert!(report.violations.is_empty());
     }
+
+    #[test]
+    fn ignored_project_skipped_entirely() {
+        let mut config = make_config(&[("Domain", &["*.Domain"])], &[], &[]);
+        config.ignore_patterns = vec!["*.Tests".to_string()];
+        let projects = [make_project("MyApp.Tests", &["MyApp.Domain"], &[])];
+        let mut report = CheckReport::new();
+        check_dependency_rules(&projects, &config, &mut report);
+        assert!(report.violations.is_empty());
+        assert!(report.warnings.is_empty());
+    }
 }
 
 fn check_package_policies(
@@ -409,6 +424,9 @@ fn check_package_policies(
     report: &mut CheckReport,
 ) {
     for project in projects {
+        if is_ignored(&project.name, &config.ignore_patterns) {
+            continue;
+        }
         let Some(layer) = resolve_layer(&project.name, &config.layers) else {
             continue;
         };
@@ -460,6 +478,7 @@ mod source_tests {
                 })
                 .collect(),
             package_policies: vec![],
+            ignore_patterns: vec![],
         }
     }
 

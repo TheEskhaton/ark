@@ -10,6 +10,14 @@ pub fn resolve_layer<'a>(project_name: &str, layers: &'a [Layer]) -> Option<&'a 
     })
 }
 
+pub fn is_ignored(project_name: &str, ignore_patterns: &[String]) -> bool {
+    ignore_patterns.iter().any(|pat| {
+        glob::Pattern::new(pat)
+            .map(|p| p.matches(project_name))
+            .unwrap_or(false)
+    })
+}
+
 pub fn resolve_layer_by_namespace<'a>(ns: &str, layers: &'a [Layer]) -> Option<&'a Layer> {
     layers.iter().find(|l| {
         l.namespace_patterns.iter().any(|pat| {
@@ -48,5 +56,18 @@ mod tests {
         }];
         assert!(resolve_layer_by_namespace("MyApp.Domain.Entities", &layers).is_some());
         assert!(resolve_layer_by_namespace("MyApp.Application.Foo", &layers).is_none());
+    }
+
+    #[test]
+    fn is_ignored_matches_glob() {
+        let patterns = vec!["*.Tests".to_string(), "*.Specs".to_string()];
+        assert!(is_ignored("MyApp.Tests", &patterns));
+        assert!(is_ignored("MyApp.Specs", &patterns));
+        assert!(!is_ignored("MyApp.Domain", &patterns));
+    }
+
+    #[test]
+    fn is_ignored_empty_patterns_never_ignores() {
+        assert!(!is_ignored("MyApp.Domain", &[]));
     }
 }

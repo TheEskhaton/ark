@@ -34,11 +34,8 @@ mod tests {
         let config_path = dir.path().join("architecture.toml");
 
         let toml_str = r#"
+layers = [{ name = "Domain", patterns = ["*.Domain"] }]
 dependency_rules = []
-
-[[layers]]
-name = "Domain"
-patterns = ["*.Domain"]
 "#;
         fs::write(&config_path, toml_str).unwrap();
 

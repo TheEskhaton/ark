@@ -63,47 +63,25 @@ cargo build --release
 ark reads `architecture.toml` from the solution root. Run `ark init` to generate a starter file, or write one by hand:
 
 ```toml
-[[layers]]
-name = "Domain"
-patterns = ["*.Domain", "*.Core"]
-# Optional: enables C# using-directive checks for this layer
-namespace_patterns = ["MyApp.Domain.*"]
+layers = [
+  { name = "Presentation",   patterns = ["*.Api", "*.Web", "*.Host"]    },
+  { name = "Application",    patterns = ["*.Application", "*.UseCases"] },
+  { name = "Domain",         patterns = ["*.Domain", "*.Core"],
+    namespace_patterns = ["MyApp.Domain.*"] },  # enables C# using-directive checks
+  { name = "Infrastructure", patterns = ["*.Infrastructure"]             },
+]
 
-[[layers]]
-name = "Application"
-patterns = ["*.Application", "*.UseCases"]
+# Any dependency not listed here is forbidden by default.
+dependency_rules = [
+  { from = "Presentation",   to = "Application",   allowed = true  },
+  { from = "Application",    to = "Domain",         allowed = true  },
+  { from = "Infrastructure", to = "Domain",         allowed = true  },
+  { from = "Domain",         to = "Infrastructure", allowed = false },
+]
 
-[[layers]]
-name = "Infrastructure"
-patterns = ["*.Infrastructure"]
-
-[[layers]]
-name = "Presentation"
-patterns = ["*.Api", "*.Web", "*.Host"]
-
-[[dependency_rules]]
-from = "Presentation"
-to = "Application"
-allowed = true
-
-[[dependency_rules]]
-from = "Application"
-to = "Domain"
-allowed = true
-
-[[dependency_rules]]
-from = "Infrastructure"
-to = "Domain"
-allowed = true
-
-[[dependency_rules]]
-from = "Domain"
-to = "Infrastructure"
-allowed = false
-
-[[package_policies]]
-layer = "Domain"
-forbidden = ["Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore"]
+package_policies = [
+  { layer = "Domain", forbidden = ["Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore"] },
+]
 
 ignore_patterns = ["*.Tests", "*.Specs", "*.IntegrationTests"]
 ```

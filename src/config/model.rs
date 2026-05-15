@@ -46,22 +46,16 @@ mod tests {
     #[test]
     fn deserialize_full_config() {
         let toml = r#"
-[[layers]]
-name = "Presentation"
-patterns = ["*.Api"]
-
-[[layers]]
-name = "Domain"
-patterns = ["*.Domain", "*.Core"]
-
-[[dependency_rules]]
-from = "Presentation"
-to = "Domain"
-allowed = true
-
-[[package_policies]]
-layer = "Domain"
-forbidden = ["EntityFramework"]
+layers = [
+  { name = "Presentation", patterns = ["*.Api"] },
+  { name = "Domain",       patterns = ["*.Domain", "*.Core"] },
+]
+dependency_rules = [
+  { from = "Presentation", to = "Domain", allowed = true },
+]
+package_policies = [
+  { layer = "Domain", forbidden = ["EntityFramework"] },
+]
 "#;
         let cfg: ArchitectureConfig = toml::from_str(toml).unwrap();
         assert_eq!(cfg.layers.len(), 2);
@@ -74,10 +68,8 @@ forbidden = ["EntityFramework"]
     #[test]
     fn package_policies_defaults_to_empty_when_absent() {
         let toml = r#"
+layers = [{ name = "A", patterns = ["*"] }]
 dependency_rules = []
-[[layers]]
-name = "A"
-patterns = ["*"]
 "#;
         let cfg: ArchitectureConfig = toml::from_str(toml).unwrap();
         assert!(cfg.package_policies.is_empty());
@@ -87,16 +79,10 @@ patterns = ["*"]
     fn dependency_rule_allowed_field_deserialized_correctly() {
         let toml = r#"
 layers = []
-
-[[dependency_rules]]
-from = "A"
-to = "B"
-allowed = false
-
-[[dependency_rules]]
-from = "C"
-to = "D"
-allowed = true
+dependency_rules = [
+  { from = "A", to = "B", allowed = false },
+  { from = "C", to = "D", allowed = true  },
+]
 "#;
         let cfg: ArchitectureConfig = toml::from_str(toml).unwrap();
         assert!(!cfg.dependency_rules[0].allowed);

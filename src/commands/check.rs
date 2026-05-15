@@ -77,7 +77,7 @@ fn apply_baseline(
     }
     violations
         .into_iter()
-        .zip(violation_keys.into_iter())
+        .zip(violation_keys)
         .filter(|(_, key)| !baseline.contains(key))
         .unzip()
 }

@@ -77,7 +77,7 @@ pub fn scan_directory(root: &Path) -> Result<Vec<CsHeader>> {
         .filter(|e| {
             e.path()
                 .extension()
-                .map_or(false, |ext| ext.eq_ignore_ascii_case("cs"))
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("cs"))
         })
         .map(|e| e.path().to_path_buf())
         .collect();

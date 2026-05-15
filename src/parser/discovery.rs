@@ -16,7 +16,7 @@ pub fn discover_projects(root: &Path) -> Result<Vec<PathBuf>> {
         let path = entry.path();
         if path
             .extension()
-            .map_or(false, |e| e.eq_ignore_ascii_case("csproj"))
+            .is_some_and(|e| e.eq_ignore_ascii_case("csproj"))
         {
             projects.push(path.to_path_buf());
         }

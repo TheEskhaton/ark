@@ -84,14 +84,13 @@ fn check_dependency_rules(
 
             if !allowed {
                 let src = std::fs::read_to_string(&project.path).unwrap_or_default();
-                let span_start = src.find(&pref.include).unwrap_or(0);
                 report.violations.push(Violation {
                     message: format!(
                         "Layer '{}' ({}) must not depend on layer '{}' ({})",
                         from_layer.name, project.name, to_layer.name, dep_name
                     ),
                     src: miette::NamedSource::new(project.path.to_string_lossy(), src),
-                    span: (span_start, pref.include.len()).into(),
+                    span: pref.include_span.into(),
                 });
             }
         }
@@ -200,11 +199,11 @@ mod tests {
             name: name.to_string(),
             project_refs: refs
                 .iter()
-                .map(|r| ProjectRef { include: r.to_string(), resolved: None })
+                .map(|r| ProjectRef::new(r.to_string(), None))
                 .collect(),
             package_refs: packages
                 .iter()
-                .map(|(n, v)| PackageRef { name: n.to_string(), version: v.to_string() })
+                .map(|(n, v)| PackageRef::new(n.to_string(), v.to_string()))
                 .collect(),
         }
     }
@@ -455,14 +454,13 @@ fn check_package_policies(
         for pkg in &project.package_refs {
             if policy.forbidden.iter().any(|f| f.eq_ignore_ascii_case(&pkg.name)) {
                 let src = std::fs::read_to_string(&project.path).unwrap_or_default();
-                let span_start = src.find(&pkg.name).unwrap_or(0);
                 report.violations.push(Violation {
                     message: format!(
                         "Package '{}' is forbidden in layer '{}'",
                         pkg.name, layer.name
                     ),
                     src: miette::NamedSource::new(project.path.to_string_lossy(), src),
-                    span: (span_start, pkg.name.len()).into(),
+                    span: pkg.name_span.into(),
                 });
             }
         }

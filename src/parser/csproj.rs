@@ -14,15 +14,31 @@ pub struct ProjectFile {
 #[derive(Debug, Clone)]
 pub struct ProjectRef {
     pub include: String,
+    /// Byte span of the Include attribute value within the .csproj file content.
+    pub include_span: (usize, usize),
     /// Resolved absolute path (best-effort)
     pub resolved: Option<PathBuf>,
+}
+
+impl ProjectRef {
+    pub fn new(include: String, resolved: Option<PathBuf>) -> Self {
+        ProjectRef { include, include_span: (0, 0), resolved }
+    }
 }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct PackageRef {
     pub name: String,
+    /// Byte span of the Include attribute value within the .csproj file content.
+    pub name_span: (usize, usize),
     pub version: String,
+}
+
+impl PackageRef {
+    pub fn new(name: String, version: String) -> Self {
+        PackageRef { name, name_span: (0, 0), version }
+    }
 }
 
 impl ProjectFile {
@@ -48,17 +64,19 @@ impl ProjectFile {
                     match e.name().as_ref() {
                         b"ProjectReference" => {
                             if let Some(include) = attr_value(&e, b"Include") {
+                                let include_span = find_attr_span(&content, "Include", &include);
                                 let resolved = path
                                     .parent()
                                     .map(|p| p.join(&include))
                                     .map(|p| p.canonicalize().unwrap_or(p));
-                                project_refs.push(ProjectRef { include, resolved });
+                                project_refs.push(ProjectRef { include, include_span, resolved });
                             }
                         }
                         b"PackageReference" => {
                             if let Some(name) = attr_value(&e, b"Include") {
+                                let name_span = find_attr_span(&content, "Include", &name);
                                 let version = attr_value(&e, b"Version").unwrap_or_default();
-                                package_refs.push(PackageRef { name, version });
+                                package_refs.push(PackageRef { name, name_span, version });
                             }
                         }
                         _ => {}
@@ -174,6 +192,46 @@ mod tests {
         let result = ProjectFile::parse(Path::new("/nonexistent/path/Fake.csproj"));
         assert!(result.is_err());
     }
+
+    #[test]
+    fn project_ref_span_points_to_include_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let xml = r#"<Project>
+  <ItemGroup>
+    <ProjectReference Include="..\MyApp.Domain\MyApp.Domain.csproj" />
+  </ItemGroup>
+</Project>"#;
+        let path = write_csproj(dir.path(), "MyApp.Api", xml);
+        let pf = ProjectFile::parse(&path).unwrap();
+        let (start, len) = pf.project_refs[0].include_span;
+        let src = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(&src[start..start + len], r"..\MyApp.Domain\MyApp.Domain.csproj");
+    }
+
+    #[test]
+    fn package_ref_span_points_to_name_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let xml = r#"<Project><ItemGroup><PackageReference Include="Newtonsoft.Json" Version="13.0.3" /></ItemGroup></Project>"#;
+        let path = write_csproj(dir.path(), "MyApp.Api", xml);
+        let pf = ProjectFile::parse(&path).unwrap();
+        let (start, len) = pf.package_refs[0].name_span;
+        let src = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(&src[start..start + len], "Newtonsoft.Json");
+    }
+}
+
+/// Find the byte span of an XML attribute value in the raw file content.
+/// Searches for `attr="value"` (double or single quotes).
+fn find_attr_span(content: &str, attr: &str, value: &str) -> (usize, usize) {
+    let double = format!(r#"{}="{}""#, attr, value);
+    if let Some(pos) = content.find(&double) {
+        return (pos + attr.len() + 2, value.len());
+    }
+    let single = format!("{}='{}'", attr, value);
+    if let Some(pos) = content.find(&single) {
+        return (pos + attr.len() + 2, value.len());
+    }
+    (content.find(value).unwrap_or(0), value.len())
 }
 
 fn attr_value(element: &quick_xml::events::BytesStart, key: &[u8]) -> Option<String> {

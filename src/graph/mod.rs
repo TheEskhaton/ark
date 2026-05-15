@@ -86,11 +86,7 @@ mod tests {
             name: name.to_string(),
             project_refs: refs
                 .into_iter()
-                .map(|r| ProjectRef {
-                    // Use ".csproj" suffix so file_stem() strips it cleanly
-                    include: format!("{r}.csproj"),
-                    resolved: None,
-                })
+                .map(|r| ProjectRef::new(format!("{r}.csproj"), None))
                 .collect(),
             package_refs: vec![],
         }

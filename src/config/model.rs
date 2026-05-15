@@ -44,30 +44,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn deserialize_full_config_json() {
-        let json = r#"{
-            "layers": [
-                {"name": "Presentation", "patterns": ["*.Api"]},
-                {"name": "Domain", "patterns": ["*.Domain", "*.Core"]}
-            ],
-            "dependency_rules": [
-                {"from": "Presentation", "to": "Domain", "allowed": true}
-            ],
-            "package_policies": [
-                {"layer": "Domain", "forbidden": ["EntityFramework"]}
-            ]
-        }"#;
-        let cfg: ArchitectureConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(cfg.layers.len(), 2);
-        assert_eq!(cfg.layers[0].name, "Presentation");
-        assert_eq!(cfg.layers[1].patterns, vec!["*.Domain", "*.Core"]);
-        assert_eq!(cfg.dependency_rules.len(), 1);
-        assert!(cfg.dependency_rules[0].allowed);
-        assert_eq!(cfg.package_policies[0].forbidden, vec!["EntityFramework"]);
-    }
-
-    #[test]
-    fn deserialize_full_config_toml() {
+    fn deserialize_full_config() {
         let toml = r#"
 [[layers]]
 name = "Presentation"
@@ -96,21 +73,32 @@ forbidden = ["EntityFramework"]
 
     #[test]
     fn package_policies_defaults_to_empty_when_absent() {
-        let json = r#"{"layers": [{"name": "A", "patterns": ["*"]}], "dependency_rules": []}"#;
-        let cfg: ArchitectureConfig = serde_json::from_str(json).unwrap();
+        let toml = r#"
+dependency_rules = []
+[[layers]]
+name = "A"
+patterns = ["*"]
+"#;
+        let cfg: ArchitectureConfig = toml::from_str(toml).unwrap();
         assert!(cfg.package_policies.is_empty());
     }
 
     #[test]
     fn dependency_rule_allowed_field_deserialized_correctly() {
-        let json = r#"{
-            "layers": [],
-            "dependency_rules": [
-                {"from": "A", "to": "B", "allowed": false},
-                {"from": "C", "to": "D", "allowed": true}
-            ]
-        }"#;
-        let cfg: ArchitectureConfig = serde_json::from_str(json).unwrap();
+        let toml = r#"
+layers = []
+
+[[dependency_rules]]
+from = "A"
+to = "B"
+allowed = false
+
+[[dependency_rules]]
+from = "C"
+to = "D"
+allowed = true
+"#;
+        let cfg: ArchitectureConfig = toml::from_str(toml).unwrap();
         assert!(!cfg.dependency_rules[0].allowed);
         assert!(cfg.dependency_rules[1].allowed);
     }

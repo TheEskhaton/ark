@@ -112,28 +112,6 @@ Layer patterns use glob syntax (`*` matches any sequence of non-separator charac
 
 `namespace_patterns` activates the C# source scan for a layer — omit it to skip tree-sitter parsing for that layer.
 
-### JSON fallback
-
-ark also accepts `architecture.json` when passed explicitly via `--config`:
-
-```bash
-ark --config architecture.json check
-```
-
-```json
-{
-  "layers": [
-    { "name": "Domain", "patterns": ["*.Domain"], "namespace_patterns": ["MyApp.Domain.*"] }
-  ],
-  "dependency_rules": [
-    { "from": "Domain", "to": "Infrastructure", "allowed": false }
-  ],
-  "package_policies": [
-    { "layer": "Domain", "forbidden": ["Microsoft.EntityFrameworkCore"] }
-  ],
-  "ignore_patterns": ["*.Tests"]
-}
-```
 
 ---
 

@@ -416,6 +416,24 @@ mod tests {
         assert!(report.violations.is_empty());
         assert!(report.warnings.is_empty());
     }
+
+    #[test]
+    fn ignored_project_skipped_in_package_policies() {
+        let mut config = make_config(
+            &[("Domain", &["*.Domain"])],
+            &[],
+            &[("Domain", &["Microsoft.EntityFrameworkCore"])],
+        );
+        config.ignore_patterns = vec!["*.Tests".to_string()];
+        let projects = [make_project(
+            "MyApp.Tests",
+            &[],
+            &[("Microsoft.EntityFrameworkCore", "7.0.0")],
+        )];
+        let mut report = CheckReport::new();
+        check_package_policies(&projects, &config, &mut report);
+        assert!(report.violations.is_empty());
+    }
 }
 
 fn check_package_policies(

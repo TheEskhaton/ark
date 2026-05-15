@@ -4,6 +4,14 @@ use rayon::prelude::*;
 use ignore::WalkBuilder;
 use tree_sitter::Parser;
 
+/// A single `using` directive with its byte range in the source file.
+#[derive(Debug, Clone)]
+pub struct UsingDirective {
+    pub namespace: String,
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
 /// Header-level information extracted from a single .cs file via tree-sitter.
 #[derive(Debug, Clone)]
 pub struct CsHeader {
@@ -11,7 +19,7 @@ pub struct CsHeader {
     /// Declared namespace (`namespace MyApp.Domain` / file-scoped variant).
     pub namespace: Option<String>,
     /// Regular `using` directives (aliases and `using static` are skipped).
-    pub usings: Vec<String>,
+    pub usings: Vec<UsingDirective>,
 }
 
 /// Parse a single .cs file and extract its namespace + using directives.
@@ -30,13 +38,13 @@ pub fn scan_file(path: &Path) -> Result<CsHeader> {
     let root = tree.root_node();
     let mut walk = root.walk();
     let mut namespace: Option<String> = None;
-    let mut usings: Vec<String> = Vec::new();
+    let mut usings: Vec<UsingDirective> = Vec::new();
 
     for child in root.children(&mut walk) {
         match child.kind() {
             "using_directive" => {
-                if let Some(name) = extract_using_name(child, &source) {
-                    usings.push(name);
+                if let Some(ud) = extract_using_directive(child, &source) {
+                    usings.push(ud);
                 }
             }
             "namespace_declaration" | "file_scoped_namespace_declaration" => {
@@ -84,13 +92,12 @@ pub fn scan_directory(root: &Path) -> Result<Vec<CsHeader>> {
     Ok(headers)
 }
 
-/// Extract the imported namespace from a `using_directive` node.
+/// Extract the imported namespace from a `using_directive` node, including its byte range.
 /// Returns `None` for `using static …` and `using Alias = …`.
-fn extract_using_name(node: tree_sitter::Node, source: &[u8]) -> Option<String> {
+fn extract_using_directive(node: tree_sitter::Node, source: &[u8]) -> Option<UsingDirective> {
     let raw = node.utf8_text(source).ok()?;
     let inner = raw.trim().strip_prefix("using")?.trim();
 
-    // Skip `using static` and alias directives
     if inner.starts_with("static ") || inner.contains('=') {
         return None;
     }
@@ -99,7 +106,19 @@ fn extract_using_name(node: tree_sitter::Node, source: &[u8]) -> Option<String> 
     if name.is_empty() {
         return None;
     }
-    Some(name.to_string())
+
+    let name_bytes = name.as_bytes();
+    let node_src = &source[node.start_byte()..node.end_byte()];
+    let offset = node_src
+        .windows(name_bytes.len())
+        .position(|w| w == name_bytes)
+        .unwrap_or(0);
+
+    Some(UsingDirective {
+        namespace: name.to_string(),
+        start_byte: node.start_byte() + offset,
+        end_byte: node.start_byte() + offset + name.len(),
+    })
 }
 
 /// Extract the declared namespace name from a `namespace_declaration` or
@@ -125,6 +144,10 @@ mod tests {
         p
     }
 
+    fn ns(usings: &[UsingDirective]) -> Vec<&str> {
+        usings.iter().map(|u| u.namespace.as_str()).collect()
+    }
+
     #[test]
     fn extracts_namespace_and_usings() {
         let dir = tempfile::tempdir().unwrap();
@@ -144,7 +167,7 @@ namespace MyApp.Application.Services
         );
         let h = scan_file(&path).unwrap();
         assert_eq!(h.namespace.as_deref(), Some("MyApp.Application.Services"));
-        assert_eq!(h.usings, vec!["System", "System.Collections.Generic", "MyApp.Domain.Entities"]);
+        assert_eq!(ns(&h.usings), vec!["System", "System.Collections.Generic", "MyApp.Domain.Entities"]);
     }
 
     #[test]
@@ -163,7 +186,7 @@ public class OrderRepository {}
         );
         let h = scan_file(&path).unwrap();
         assert_eq!(h.namespace.as_deref(), Some("MyApp.Infrastructure.Persistence"));
-        assert_eq!(h.usings, vec!["MyApp.Domain.Interfaces"]);
+        assert_eq!(ns(&h.usings), vec!["MyApp.Domain.Interfaces"]);
     }
 
     #[test]
@@ -172,7 +195,7 @@ public class OrderRepository {}
         let path = write_cs(dir.path(), "Script.cs", "using System;\npublic class Foo {}");
         let h = scan_file(&path).unwrap();
         assert!(h.namespace.is_none());
-        assert_eq!(h.usings, vec!["System"]);
+        assert_eq!(ns(&h.usings), vec!["System"]);
     }
 
     #[test]
@@ -214,5 +237,17 @@ public class OrderRepository {}
     fn missing_file_returns_error() {
         let result = scan_file(Path::new("/nonexistent/file.cs"));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn using_directive_has_correct_byte_range() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = "using MyApp.Domain.Entities;\nnamespace MyApp.Application;\npublic class X {}";
+        let path = write_cs(dir.path(), "Test.cs", src);
+        let h = scan_file(&path).unwrap();
+        assert_eq!(h.usings.len(), 1);
+        let u = &h.usings[0];
+        assert_eq!(u.namespace, "MyApp.Domain.Entities");
+        assert_eq!(&src[u.start_byte..u.end_byte], "MyApp.Domain.Entities");
     }
 }

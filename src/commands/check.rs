@@ -120,7 +120,7 @@ fn check_source_rules(
         };
 
         for using in &header.usings {
-            let Some(to_layer) = resolve_layer_by_namespace(using, &config.layers) else {
+            let Some(to_layer) = resolve_layer_by_namespace(&using.namespace, &config.layers) else {
                 continue;
             };
 
@@ -137,15 +137,13 @@ fn check_source_rules(
 
             if !allowed {
                 let src = std::fs::read_to_string(&header.path).unwrap_or_default();
-                let needle = format!("using {using}");
-                let span_start = src.find(&needle).unwrap_or(0);
                 report.violations.push(Violation {
                     message: format!(
                         "Source: layer '{}' must not use '{}' from layer '{}'",
-                        from_layer.name, using, to_layer.name,
+                        from_layer.name, using.namespace, to_layer.name,
                     ),
                     src: miette::NamedSource::new(header.path.to_string_lossy(), src),
-                    span: (span_start, needle.len()).into(),
+                    span: (using.start_byte, using.end_byte - using.start_byte).into(),
                 });
             }
         }

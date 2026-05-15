@@ -8,10 +8,7 @@ use crate::report::{CheckReport, Violation};
 use crate::rules::{resolve_layer, resolve_layer_by_namespace, is_ignored};
 use crate::scanner;
 
-pub async fn run(root: &str, config_path: &str, strict: bool) -> Result<()> {
-    let root = Path::new(root);
-    let config = load_config(Path::new(config_path)).await?;
-
+pub async fn collect(root: &Path, config: &ArchitectureConfig) -> Result<CheckReport> {
     let project_paths = discover_projects(root)?;
     tracing::info!("Discovered {} projects", project_paths.len());
 
@@ -27,9 +24,32 @@ pub async fn run(root: &str, config_path: &str, strict: bool) -> Result<()> {
         .collect();
 
     let mut report = CheckReport::new();
-    check_dependency_rules(&projects, &config, &mut report);
-    check_package_policies(&projects, &config, &mut report);
-    check_source_rules(root, &config, &mut report)?;
+    check_dependency_rules(&projects, config, &mut report);
+    check_package_policies(&projects, config, &mut report);
+    check_source_rules(root, config, &mut report)?;
+    Ok(report)
+}
+
+pub async fn run(root: &str, config_path: &str, strict: bool, no_baseline: bool) -> Result<()> {
+    let root_path = Path::new(root);
+    let config = load_config(Path::new(config_path)).await?;
+    let mut report = collect(root_path, &config).await?;
+
+    if !no_baseline {
+        let baseline_path = root_path.join("ark-baseline.json");
+        if let Some(baseline) = crate::baseline::try_load(&baseline_path) {
+            let (filtered_violations, filtered_keys) =
+                apply_baseline(
+                    report.violations,
+                    report.violation_keys,
+                    &baseline,
+                    &mut report.warnings,
+                );
+            report.violations = filtered_violations;
+            report.violation_keys = filtered_keys;
+        }
+    }
+
     report.print_summary();
 
     if !report.violations.is_empty() || (strict && !report.warnings.is_empty()) {
@@ -40,6 +60,69 @@ pub async fn run(root: &str, config_path: &str, strict: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn apply_baseline(
+    violations: Vec<Violation>,
+    violation_keys: Vec<crate::baseline::BaselineEntry>,
+    baseline: &[crate::baseline::BaselineEntry],
+    warnings: &mut Vec<String>,
+) -> (Vec<Violation>, Vec<crate::baseline::BaselineEntry>) {
+    for entry in baseline {
+        if !violation_keys.contains(entry) {
+            warnings.push(format!(
+                "Stale baseline entry ({} {} → {}) — violation no longer exists",
+                entry.kind, entry.from, entry.to
+            ));
+        }
+    }
+    violations
+        .into_iter()
+        .zip(violation_keys.into_iter())
+        .filter(|(_, key)| !baseline.contains(key))
+        .unzip()
+}
+
+#[cfg(test)]
+mod baseline_tests {
+    use super::*;
+    use crate::baseline::BaselineEntry;
+
+    fn entry(kind: &str, from: &str, to: &str) -> BaselineEntry {
+        BaselineEntry { kind: kind.to_string(), from: from.to_string(), to: to.to_string() }
+    }
+
+    fn make_violation() -> Violation {
+        Violation {
+            message: "test".to_string(),
+            src: miette::NamedSource::new("test.csproj", "content".to_string()),
+            span: (0, 1).into(),
+        }
+    }
+
+    #[test]
+    fn filters_matching_violations() {
+        let baseline = vec![entry("project_ref", "A", "B")];
+        let violations = vec![make_violation(), make_violation()];
+        let keys = vec![
+            entry("project_ref", "A", "B"),
+            entry("project_ref", "C", "D"),
+        ];
+        let mut warnings = vec![];
+        let (remaining, _) = apply_baseline(violations, keys, &baseline, &mut warnings);
+        assert_eq!(remaining.len(), 1);
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn warns_on_stale_entry() {
+        let baseline = vec![entry("project_ref", "A", "B")];
+        let mut warnings = vec![];
+        let (remaining, _) = apply_baseline(vec![], vec![], &baseline, &mut warnings);
+        assert!(remaining.is_empty());
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("Stale"));
+    }
 }
 
 fn check_dependency_rules(
@@ -91,6 +174,11 @@ fn check_dependency_rules(
                     ),
                     src: miette::NamedSource::new(project.path.to_string_lossy(), src),
                     span: pref.include_span.into(),
+                });
+                report.violation_keys.push(crate::baseline::BaselineEntry {
+                    kind: "project_ref".to_string(),
+                    from: project.name.clone(),
+                    to: dep_name.clone(),
                 });
             }
         }
@@ -144,6 +232,11 @@ fn check_source_rules(
                     ),
                     src: miette::NamedSource::new(header.path.to_string_lossy(), src),
                     span: (using.start_byte, using.end_byte - using.start_byte).into(),
+                });
+                report.violation_keys.push(crate::baseline::BaselineEntry {
+                    kind: "source".to_string(),
+                    from: ns.to_string(),
+                    to: using.namespace.clone(),
                 });
             }
         }
@@ -459,6 +552,11 @@ fn check_package_policies(
                     ),
                     src: miette::NamedSource::new(project.path.to_string_lossy(), src),
                     span: pkg.name_span.into(),
+                });
+                report.violation_keys.push(crate::baseline::BaselineEntry {
+                    kind: "package".to_string(),
+                    from: project.name.clone(),
+                    to: pkg.name.clone(),
                 });
             }
         }

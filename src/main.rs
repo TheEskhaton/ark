@@ -38,6 +38,9 @@ enum Commands {
         /// Exit with error even on warnings
         #[arg(long)]
         strict: bool,
+        /// Ignore ark-baseline.json even if present
+        #[arg(long)]
+        no_baseline: bool,
     },
     /// Export the dependency graph
     Graph {
@@ -67,8 +70,8 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Check { strict } => {
-            commands::check::run(&cli.root, &cli.config, strict).await
+        Commands::Check { strict, no_baseline } => {
+            commands::check::run(&cli.root, &cli.config, strict, no_baseline).await
         }
         Commands::Graph { format, output } => {
             commands::graph::run(&cli.root, &cli.config, &format, output.as_deref()).await

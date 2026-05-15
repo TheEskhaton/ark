@@ -8,10 +8,10 @@ Architectural boundary enforcer for .NET solutions. Parses `.csproj` project gra
 ```
 $ ark check
 
-  × Domain → Infrastructure dependency forbidden
-   ╭─[MyApp.Domain/Repositories/UserRepo.cs:3:7]
- 3 │ using MyApp.Infrastructure.Data;
-   ·       ────────────────────────
+  × Layer 'Domain' (MyApp.Domain) must not depend on layer 'Infrastructure' (MyApp.Infrastructure.Data)
+   ╭─[MyApp.Domain/MyApp.Domain.csproj:6:27]
+ 6 │     <ProjectReference Include="..\MyApp.Infrastructure.Data\MyApp.Infrastructure.Data.csproj" />
+   ·                           ──────────────────────────────────────────────────────────────────
    ╰─
 ```
 
@@ -33,6 +33,7 @@ Violations are reported with source spans pointing directly to the offending lin
 
 ```bash
 # 1. Generate a starter config in your solution root
+cd /path/to/your/solution
 ark init
 
 # 2. Edit architecture.toml to match your layers, then:
@@ -42,6 +43,10 @@ ark check
 ---
 
 ## Installation
+
+**Pre-built binaries** (Linux, Windows x86/arm) are available on the [releases page](https://github.com/TheEskhaton/ark/releases).
+
+Or install via Cargo:
 
 ```bash
 cargo install ark-cli
@@ -64,11 +69,10 @@ ark reads `architecture.toml` from the solution root. Run `ark init` to generate
 
 ```toml
 layers = [
-  { name = "Presentation",   patterns = ["*.Api", "*.Web", "*.Host"]    },
-  { name = "Application",    patterns = ["*.Application", "*.UseCases"] },
-  { name = "Domain",         patterns = ["*.Domain", "*.Core"],
-    namespace_patterns = ["MyApp.Domain.*"] },  # enables C# using-directive checks
-  { name = "Infrastructure", patterns = ["*.Infrastructure"]             },
+  { name = "Presentation",   patterns = ["*.Api", "*.Web", "*.Host"]                   },
+  { name = "Application",    patterns = ["*.Application", "*.UseCases"]                },
+  { name = "Domain",         patterns = ["*.Domain", "*.Core"]                         },
+  { name = "Infrastructure", patterns = ["*.Infrastructure", "*.Persistence"]          },
 ]
 
 # Any dependency not listed here is forbidden by default.
@@ -86,10 +90,19 @@ package_policies = [
 ignore_patterns = ["*.Tests", "*.Specs", "*.IntegrationTests"]
 ```
 
-Layer patterns use glob syntax (`*` matches any sequence of non-separator characters). Any dependency not listed in `dependency_rules` is **forbidden by default**.
+**Layer patterns** use glob syntax — `*.Domain` matches any project name ending in `.Domain`. Any dependency not listed in `dependency_rules` is **forbidden by default**.
 
-`namespace_patterns` activates the C# source scan for a layer — omit it to skip tree-sitter parsing for that layer.
+### C# source scanning
 
+Add `namespace_patterns` to a layer to also check `using` directives in `.cs` files for that layer (powered by tree-sitter):
+
+```toml
+layers = [
+  { name = "Domain", patterns = ["*.Domain"], namespace_patterns = ["MyApp.Domain.*"] },
+]
+```
+
+Omit `namespace_patterns` to skip source scanning for that layer.
 
 ---
 
@@ -100,25 +113,25 @@ Layer patterns use glob syntax (`*` matches any sequence of non-separator charac
 Run all architectural checks and report violations.
 
 ```bash
-ark check                  # check; exit 1 if any violations
+ark check                  # exit 1 if any violations
 ark check --strict         # also exit 1 on warnings (unmatched projects)
 ark check --no-baseline    # ignore ark-baseline.json even if present
 ```
 
 ### `ark baseline`
 
-Snapshot current violations so `ark check` only fails on *new* ones. Useful for gradual adoption in brownfield solutions — lock in existing debt without silencing the tool.
+Brownfield adoption: snapshot existing violations so `ark check` only fails on *new* ones. Teams can quarantine known debt and clean it up incrementally.
 
 ```bash
-ark baseline               # write all current violations → ark-baseline.json
-ark check                  # now reports only violations introduced since the snapshot
+ark baseline               # write current violations → ark-baseline.json
+ark check                  # now only fails on violations introduced since the snapshot
 ```
 
-`ark-baseline.json` should be committed alongside your config. Stale entries (violations that no longer exist) are reported as warnings so you can clean them up over time.
+Commit `ark-baseline.json` alongside your config. Stale entries (violations that no longer exist) surface as warnings so you know when debt has been paid off.
 
 ### `ark explain`
 
-Show which layer a project belongs to and what it can and cannot depend on.
+Show which layer a project belongs to and what it can depend on.
 
 ```bash
 ark explain MyApp.Domain
@@ -137,7 +150,7 @@ Other projects in this layer:
   MyApp.Core
 ```
 
-Useful when a project shows up as unmatched, or when onboarding to an unfamiliar solution.
+Useful when a project shows up as unmatched or when onboarding to an unfamiliar solution.
 
 ### `ark graph`
 
@@ -153,7 +166,6 @@ ark graph --format dot -o graph.dot     # Graphviz DOT file
 Generate a starter `architecture.toml` in the solution root.
 
 ```bash
-cd /path/to/solution
 ark init
 ```
 
@@ -166,11 +178,20 @@ ark init
 ```yaml
 - name: Check architecture
   run: |
+    curl -sSL https://github.com/TheEskhaton/ark/releases/latest/download/ark-latest-x86_64-unknown-linux-gnu.tar.gz | tar xz
+    ./ark check
+```
+
+Or via Cargo (slower, but no binary download needed):
+
+```yaml
+- name: Check architecture
+  run: |
     cargo install ark-cli --quiet
     ark check
 ```
 
-ark exits `0` on clean, `1` on violations — no external dependencies required.
+ark exits `0` on clean, `1` on violations.
 
 ---
 
@@ -181,7 +202,7 @@ ark --root <path>     # solution root (default: current directory)
 ark --config <path>   # config file (default: architecture.toml)
 ```
 
-These apply to all subcommands and are useful when running ark from a different directory:
+Useful when running ark from a directory other than the solution root:
 
 ```bash
 ark --root /path/to/solution check

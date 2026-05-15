@@ -1,10 +1,10 @@
-use std::path::Path;
 use miette::{IntoDiagnostic, Result};
 use rayon::prelude::*;
+use std::path::Path;
 
 use crate::config::load_config;
 use crate::graph::SolutionGraph;
-use crate::parser::{discover_projects, ProjectFile};
+use crate::parser::{ProjectFile, discover_projects};
 
 pub fn run(root: &str, config_path: &str, format: &str, output: Option<&str>) -> Result<()> {
     let root = Path::new(root);

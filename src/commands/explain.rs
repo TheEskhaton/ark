@@ -1,11 +1,11 @@
-use std::path::Path;
 use miette::Result;
 use rayon::prelude::*;
+use std::path::Path;
 
 use crate::config::load_config;
 use crate::config::model::ArchitectureConfig;
-use crate::parser::{discover_projects, ProjectFile};
-use crate::rules::{resolve_layer, is_ignored};
+use crate::parser::{ProjectFile, discover_projects};
+use crate::rules::{is_ignored, resolve_layer};
 
 pub fn run(root: &str, config_path: &str, project: &str) -> Result<()> {
     let root_path = Path::new(root);
@@ -19,7 +19,10 @@ pub fn run(root: &str, config_path: &str, project: &str) -> Result<()> {
 
     let known: Vec<&str> = projects.iter().map(|p| p.name.as_str()).collect();
     if !known.contains(&project) {
-        eprintln!("Warning: '{}' not found among discovered .csproj files", project);
+        eprintln!(
+            "Warning: '{}' not found among discovered .csproj files",
+            project
+        );
     }
 
     print!("{}", describe_project(project, &config, &known));
@@ -53,20 +56,27 @@ pub fn describe_project(
         if other.name == layer.name {
             continue;
         }
-        let rule = config.dependency_rules.iter()
+        let rule = config
+            .dependency_rules
+            .iter()
             .find(|r| r.from == layer.name && r.to == other.name);
         let (status, tag) = match rule {
             Some(r) if r.allowed => ("allowed  ", "[explicit]"),
-            Some(_)              => ("forbidden", "[explicit]"),
-            None                 => ("forbidden", "[default]"),
+            Some(_) => ("forbidden", "[explicit]"),
+            None => ("forbidden", "[default]"),
         };
         out.push_str(&format!("  → {:<24} {}  {:<10}\n", other.name, status, tag));
     }
 
-    let siblings: Vec<&str> = known_projects.iter()
+    let siblings: Vec<&str> = known_projects
+        .iter()
         .copied()
         .filter(|&p| p != project)
-        .filter(|p| resolve_layer(p, &config.layers).map(|l| l.name == layer.name).unwrap_or(false))
+        .filter(|p| {
+            resolve_layer(p, &config.layers)
+                .map(|l| l.name == layer.name)
+                .unwrap_or(false)
+        })
         .collect();
 
     if !siblings.is_empty() {
@@ -86,16 +96,22 @@ mod tests {
 
     fn cfg(layers: &[(&str, &[&str])], rules: &[(&str, &str, bool)]) -> ArchitectureConfig {
         ArchitectureConfig {
-            layers: layers.iter().map(|(name, pats)| Layer {
-                name: name.to_string(),
-                patterns: pats.iter().map(|s| s.to_string()).collect(),
-                namespace_patterns: vec![],
-            }).collect(),
-            dependency_rules: rules.iter().map(|(from, to, allowed)| DependencyRule {
-                from: from.to_string(),
-                to: to.to_string(),
-                allowed: *allowed,
-            }).collect(),
+            layers: layers
+                .iter()
+                .map(|(name, pats)| Layer {
+                    name: name.to_string(),
+                    patterns: pats.iter().map(|s| s.to_string()).collect(),
+                    namespace_patterns: vec![],
+                })
+                .collect(),
+            dependency_rules: rules
+                .iter()
+                .map(|(from, to, allowed)| DependencyRule {
+                    from: from.to_string(),
+                    to: to.to_string(),
+                    allowed: *allowed,
+                })
+                .collect(),
             package_policies: vec![],
             ignore_patterns: vec![],
         }
@@ -111,7 +127,10 @@ mod tests {
     #[test]
     fn matched_project_shows_layer() {
         let config = cfg(
-            &[("Domain", &["*.Domain"]), ("Application", &["*.Application"])],
+            &[
+                ("Domain", &["*.Domain"]),
+                ("Application", &["*.Application"]),
+            ],
             &[("Application", "Domain", true)],
         );
         let out = describe_project("MyApp.Domain", &config, &[]);
@@ -131,7 +150,11 @@ mod tests {
     #[test]
     fn siblings_listed_when_present() {
         let config = cfg(&[("Domain", &["*.Domain"])], &[]);
-        let out = describe_project("MyApp.Domain", &config, &["MyApp.Domain", "MyApp.Core.Domain"]);
+        let out = describe_project(
+            "MyApp.Domain",
+            &config,
+            &["MyApp.Domain", "MyApp.Core.Domain"],
+        );
         assert!(out.contains("MyApp.Core.Domain"));
     }
 }

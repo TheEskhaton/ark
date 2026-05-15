@@ -1,11 +1,11 @@
-use std::path::Path;
 use miette::Result;
 use rayon::prelude::*;
+use std::path::Path;
 
-use crate::config::{load_config, ArchitectureConfig};
-use crate::parser::{discover_projects, ProjectFile};
+use crate::config::{ArchitectureConfig, load_config};
+use crate::parser::{ProjectFile, discover_projects};
 use crate::report::{CheckReport, Violation};
-use crate::rules::{resolve_layer, resolve_layer_by_namespace, is_ignored};
+use crate::rules::{is_ignored, resolve_layer, resolve_layer_by_namespace};
 use crate::scanner;
 
 pub fn collect(root: &Path, config: &ArchitectureConfig) -> Result<CheckReport> {
@@ -38,13 +38,12 @@ pub fn run(root: &str, config_path: &str, strict: bool, no_baseline: bool) -> Re
     if !no_baseline {
         let baseline_path = root_path.join("ark-baseline.json");
         if let Some(baseline) = crate::baseline::try_load(&baseline_path) {
-            let (filtered_violations, filtered_keys) =
-                apply_baseline(
-                    report.violations,
-                    report.violation_keys,
-                    &baseline,
-                    &mut report.warnings,
-                );
+            let (filtered_violations, filtered_keys) = apply_baseline(
+                report.violations,
+                report.violation_keys,
+                &baseline,
+                &mut report.warnings,
+            );
             report.violations = filtered_violations;
             report.violation_keys = filtered_keys;
         }
@@ -89,7 +88,11 @@ mod baseline_tests {
     use crate::baseline::BaselineEntry;
 
     fn entry(kind: &str, from: &str, to: &str) -> BaselineEntry {
-        BaselineEntry { kind: kind.to_string(), from: from.to_string(), to: to.to_string() }
+        BaselineEntry {
+            kind: kind.to_string(),
+            from: from.to_string(),
+            to: to.to_string(),
+        }
     }
 
     fn make_violation() -> Violation {
@@ -192,7 +195,11 @@ fn check_source_rules(
     config: &ArchitectureConfig,
     report: &mut CheckReport,
 ) -> Result<()> {
-    if config.layers.iter().all(|l| l.namespace_patterns.is_empty()) {
+    if config
+        .layers
+        .iter()
+        .all(|l| l.namespace_patterns.is_empty())
+    {
         tracing::debug!("No namespace_patterns defined — skipping source scan");
         return Ok(());
     }
@@ -201,14 +208,17 @@ fn check_source_rules(
     tracing::info!("Source scan: {} .cs files", headers.len());
 
     for header in &headers {
-        let Some(ns) = &header.namespace else { continue };
+        let Some(ns) = &header.namespace else {
+            continue;
+        };
 
         let Some(from_layer) = resolve_layer_by_namespace(ns, &config.layers) else {
             continue;
         };
 
         for using in &header.usings {
-            let Some(to_layer) = resolve_layer_by_namespace(&using.namespace, &config.layers) else {
+            let Some(to_layer) = resolve_layer_by_namespace(&using.namespace, &config.layers)
+            else {
                 continue;
             };
 
@@ -336,10 +346,21 @@ mod tests {
     #[test]
     fn resolve_layer_returns_first_matching_layer() {
         let layers = vec![
-            Layer { name: "First".to_string(),  patterns: vec!["*.Shared".to_string()], namespace_patterns: vec![] },
-            Layer { name: "Second".to_string(), patterns: vec!["*.Shared".to_string()], namespace_patterns: vec![] },
+            Layer {
+                name: "First".to_string(),
+                patterns: vec!["*.Shared".to_string()],
+                namespace_patterns: vec![],
+            },
+            Layer {
+                name: "Second".to_string(),
+                patterns: vec!["*.Shared".to_string()],
+                namespace_patterns: vec![],
+            },
         ];
-        assert_eq!(resolve_layer("MyApp.Shared", &layers).unwrap().name, "First");
+        assert_eq!(
+            resolve_layer("MyApp.Shared", &layers).unwrap().name,
+            "First"
+        );
     }
 
     // ── check_dependency_rules ─────────────────────────────────────────────────
@@ -360,7 +381,10 @@ mod tests {
     #[test]
     fn forbidden_dependency_produces_violation() {
         let config = make_config(
-            &[("Domain", &["*.Domain"]), ("Infrastructure", &["*.Infrastructure"])],
+            &[
+                ("Domain", &["*.Domain"]),
+                ("Infrastructure", &["*.Infrastructure"]),
+            ],
             &[("Domain", "Infrastructure", false)],
             &[],
         );
@@ -399,7 +423,10 @@ mod tests {
     #[test]
     fn multiple_forbidden_refs_all_reported() {
         let config = make_config(
-            &[("Domain", &["*.Domain"]), ("Infrastructure", &["*.Infrastructure"])],
+            &[
+                ("Domain", &["*.Domain"]),
+                ("Infrastructure", &["*.Infrastructure"]),
+            ],
             &[("Domain", "Infrastructure", false)],
             &[],
         );
@@ -439,7 +466,10 @@ mod tests {
         )];
         let mut report = CheckReport::new();
         check_dependency_rules(&projects, &config, &mut report);
-        assert!(report.violations.is_empty(), "intra-layer ref should not be a violation");
+        assert!(
+            report.violations.is_empty(),
+            "intra-layer ref should not be a violation"
+        );
     }
 
     // ── check_package_policies ─────────────────────────────────────────────────
@@ -451,12 +481,19 @@ mod tests {
             &[],
             &[("Domain", &["Microsoft.EntityFrameworkCore"])],
         );
-        let projects =
-            [make_project("MyApp.Domain", &[], &[("Microsoft.EntityFrameworkCore", "7.0.0")])];
+        let projects = [make_project(
+            "MyApp.Domain",
+            &[],
+            &[("Microsoft.EntityFrameworkCore", "7.0.0")],
+        )];
         let mut report = CheckReport::new();
         check_package_policies(&projects, &config, &mut report);
         assert_eq!(report.violations.len(), 1);
-        assert!(report.violations[0].message.contains("Microsoft.EntityFrameworkCore"));
+        assert!(
+            report.violations[0]
+                .message
+                .contains("Microsoft.EntityFrameworkCore")
+        );
         assert!(report.violations[0].message.contains("Domain"));
     }
 
@@ -467,7 +504,11 @@ mod tests {
             &[],
             &[("Domain", &["Microsoft.EntityFrameworkCore"])],
         );
-        let projects = [make_project("MyApp.Domain", &[], &[("FluentValidation", "11.0.0")])];
+        let projects = [make_project(
+            "MyApp.Domain",
+            &[],
+            &[("FluentValidation", "11.0.0")],
+        )];
         let mut report = CheckReport::new();
         check_package_policies(&projects, &config, &mut report);
         assert!(report.violations.is_empty());
@@ -480,8 +521,11 @@ mod tests {
             &[],
             &[("Domain", &["microsoft.entityframeworkcore"])],
         );
-        let projects =
-            [make_project("MyApp.Domain", &[], &[("Microsoft.EntityFrameworkCore", "7.0.0")])];
+        let projects = [make_project(
+            "MyApp.Domain",
+            &[],
+            &[("Microsoft.EntityFrameworkCore", "7.0.0")],
+        )];
         let mut report = CheckReport::new();
         check_package_policies(&projects, &config, &mut report);
         assert_eq!(report.violations.len(), 1);
@@ -538,12 +582,20 @@ fn check_package_policies(
         let Some(layer) = resolve_layer(&project.name, &config.layers) else {
             continue;
         };
-        let Some(policy) = config.package_policies.iter().find(|p| p.layer == layer.name) else {
+        let Some(policy) = config
+            .package_policies
+            .iter()
+            .find(|p| p.layer == layer.name)
+        else {
             continue;
         };
 
         for pkg in &project.package_refs {
-            if policy.forbidden.iter().any(|f| f.eq_ignore_ascii_case(&pkg.name)) {
+            if policy
+                .forbidden
+                .iter()
+                .any(|f| f.eq_ignore_ascii_case(&pkg.name))
+            {
                 let src = std::fs::read_to_string(&project.path).unwrap_or_default();
                 report.violations.push(Violation {
                     message: format!(
@@ -631,8 +683,12 @@ mod source_tests {
 
         let config = make_ns_config(
             &[
-                ("Domain",         &["*.Domain"],         &["MyApp.Domain.*"]),
-                ("Infrastructure", &["*.Infrastructure"], &["MyApp.Infrastructure.*"]),
+                ("Domain", &["*.Domain"], &["MyApp.Domain.*"]),
+                (
+                    "Infrastructure",
+                    &["*.Infrastructure"],
+                    &["MyApp.Infrastructure.*"],
+                ),
             ],
             &[("Domain", "Infrastructure", false)],
         );
@@ -656,7 +712,7 @@ mod source_tests {
         let config = make_ns_config(
             &[
                 ("Application", &["*.Application"], &["MyApp.Application.*"]),
-                ("Domain",      &["*.Domain"],      &["MyApp.Domain.*"]),
+                ("Domain", &["*.Domain"], &["MyApp.Domain.*"]),
             ],
             &[("Application", "Domain", true)],
         );
@@ -685,10 +741,7 @@ mod source_tests {
         )
         .unwrap();
 
-        let config = make_ns_config(
-            &[("Domain", &["*.Domain"], &["MyApp.Domain.*"])],
-            &[],
-        );
+        let config = make_ns_config(&[("Domain", &["*.Domain"], &["MyApp.Domain.*"])], &[]);
 
         let mut report = CheckReport::new();
         check_source_rules(dir.path(), &config, &mut report).unwrap();

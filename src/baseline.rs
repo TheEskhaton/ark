@@ -1,6 +1,6 @@
+use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use miette::{IntoDiagnostic, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BaselineEntry {
@@ -30,7 +30,11 @@ mod tests {
     use super::*;
 
     fn entry(kind: &str, from: &str, to: &str) -> BaselineEntry {
-        BaselineEntry { kind: kind.to_string(), from: from.to_string(), to: to.to_string() }
+        BaselineEntry {
+            kind: kind.to_string(),
+            from: from.to_string(),
+            to: to.to_string(),
+        }
     }
 
     #[test]

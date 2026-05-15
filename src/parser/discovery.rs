@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
 use ignore::WalkBuilder;
 use miette::{IntoDiagnostic, Result};
+use std::path::{Path, PathBuf};
 
 /// Recursively find all .csproj files under `root`, respecting .gitignore.
 pub fn discover_projects(root: &Path) -> Result<Vec<PathBuf>> {

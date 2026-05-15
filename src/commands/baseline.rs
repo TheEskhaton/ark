@@ -1,9 +1,9 @@
-use std::path::Path;
 use miette::Result;
+use std::path::Path;
 
+use super::check::collect;
 use crate::baseline;
 use crate::config::load_config;
-use super::check::collect;
 
 pub fn run(root: &str, config_path: &str) -> Result<()> {
     let root_path = Path::new(root);

@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
-use quick_xml::events::Event;
-use quick_xml::Reader;
 use miette::{IntoDiagnostic, Result, miette};
+use quick_xml::Reader;
+use quick_xml::events::Event;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct ProjectFile {
@@ -23,7 +23,11 @@ pub struct ProjectRef {
 #[allow(dead_code)]
 impl ProjectRef {
     pub fn new(include: String, resolved: Option<PathBuf>) -> Self {
-        ProjectRef { include, include_span: (0, 0), resolved }
+        ProjectRef {
+            include,
+            include_span: (0, 0),
+            resolved,
+        }
     }
 }
 
@@ -39,7 +43,11 @@ pub struct PackageRef {
 #[allow(dead_code)]
 impl PackageRef {
     pub fn new(name: String, version: String) -> Self {
-        PackageRef { name, name_span: (0, 0), version }
+        PackageRef {
+            name,
+            name_span: (0, 0),
+            version,
+        }
     }
 }
 
@@ -51,8 +59,7 @@ impl ProjectFile {
             .to_string_lossy()
             .into_owned();
 
-        let content = std::fs::read_to_string(path)
-            .into_diagnostic()?;
+        let content = std::fs::read_to_string(path).into_diagnostic()?;
 
         let mut project_refs = Vec::new();
         let mut package_refs = Vec::new();
@@ -62,28 +69,34 @@ impl ProjectFile {
 
         loop {
             match reader.read_event().into_diagnostic()? {
-                Event::Empty(e) | Event::Start(e) => {
-                    match e.name().as_ref() {
-                        b"ProjectReference" => {
-                            if let Some(include) = attr_value(&e, b"Include") {
-                                let include_span = find_attr_span(&content, "Include", &include);
-                                let resolved = path
-                                    .parent()
-                                    .map(|p| p.join(&include))
-                                    .map(|p| p.canonicalize().unwrap_or(p));
-                                project_refs.push(ProjectRef { include, include_span, resolved });
-                            }
+                Event::Empty(e) | Event::Start(e) => match e.name().as_ref() {
+                    b"ProjectReference" => {
+                        if let Some(include) = attr_value(&e, b"Include") {
+                            let include_span = find_attr_span(&content, "Include", &include);
+                            let resolved = path
+                                .parent()
+                                .map(|p| p.join(&include))
+                                .map(|p| p.canonicalize().unwrap_or(p));
+                            project_refs.push(ProjectRef {
+                                include,
+                                include_span,
+                                resolved,
+                            });
                         }
-                        b"PackageReference" => {
-                            if let Some(name) = attr_value(&e, b"Include") {
-                                let name_span = find_attr_span(&content, "Include", &name);
-                                let version = attr_value(&e, b"Version").unwrap_or_default();
-                                package_refs.push(PackageRef { name, name_span, version });
-                            }
-                        }
-                        _ => {}
                     }
-                }
+                    b"PackageReference" => {
+                        if let Some(name) = attr_value(&e, b"Include") {
+                            let name_span = find_attr_span(&content, "Include", &name);
+                            let version = attr_value(&e, b"Version").unwrap_or_default();
+                            package_refs.push(PackageRef {
+                                name,
+                                name_span,
+                                version,
+                            });
+                        }
+                    }
+                    _ => {}
+                },
                 Event::Eof => break,
                 _ => {}
             }
@@ -167,7 +180,8 @@ mod tests {
     #[test]
     fn package_reference_missing_version_defaults_empty() {
         let dir = tempfile::tempdir().unwrap();
-        let xml = r#"<Project><ItemGroup><PackageReference Include="SomePkg" /></ItemGroup></Project>"#;
+        let xml =
+            r#"<Project><ItemGroup><PackageReference Include="SomePkg" /></ItemGroup></Project>"#;
         let path = write_csproj(dir.path(), "NoVersion", xml);
         let pf = ProjectFile::parse(&path).unwrap();
         assert_eq!(pf.package_refs[0].version, "");
@@ -207,7 +221,10 @@ mod tests {
         let pf = ProjectFile::parse(&path).unwrap();
         let (start, len) = pf.project_refs[0].include_span;
         let src = std::fs::read_to_string(&path).unwrap();
-        assert_eq!(&src[start..start + len], r"..\MyApp.Domain\MyApp.Domain.csproj");
+        assert_eq!(
+            &src[start..start + len],
+            r"..\MyApp.Domain\MyApp.Domain.csproj"
+        );
     }
 
     #[test]

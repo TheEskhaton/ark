@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
+use ignore::WalkBuilder;
 use miette::{IntoDiagnostic, Result};
 use rayon::prelude::*;
-use ignore::WalkBuilder;
+use std::path::{Path, PathBuf};
 use tree_sitter::Parser;
 
 /// A single `using` directive with its byte range in the source file.
@@ -59,7 +59,11 @@ pub fn scan_file(path: &Path) -> Result<CsHeader> {
         }
     }
 
-    Ok(CsHeader { path: path.to_path_buf(), namespace, usings })
+    Ok(CsHeader {
+        path: path.to_path_buf(),
+        namespace,
+        usings,
+    })
 }
 
 /// Recursively scan a directory for .cs files and extract their headers in parallel.
@@ -167,7 +171,14 @@ namespace MyApp.Application.Services
         );
         let h = scan_file(&path).unwrap();
         assert_eq!(h.namespace.as_deref(), Some("MyApp.Application.Services"));
-        assert_eq!(ns(&h.usings), vec!["System", "System.Collections.Generic", "MyApp.Domain.Entities"]);
+        assert_eq!(
+            ns(&h.usings),
+            vec![
+                "System",
+                "System.Collections.Generic",
+                "MyApp.Domain.Entities"
+            ]
+        );
     }
 
     #[test]
@@ -185,14 +196,21 @@ public class OrderRepository {}
 "#,
         );
         let h = scan_file(&path).unwrap();
-        assert_eq!(h.namespace.as_deref(), Some("MyApp.Infrastructure.Persistence"));
+        assert_eq!(
+            h.namespace.as_deref(),
+            Some("MyApp.Infrastructure.Persistence")
+        );
         assert_eq!(ns(&h.usings), vec!["MyApp.Domain.Interfaces"]);
     }
 
     #[test]
     fn no_namespace_still_collects_usings() {
         let dir = tempfile::tempdir().unwrap();
-        let path = write_cs(dir.path(), "Script.cs", "using System;\npublic class Foo {}");
+        let path = write_cs(
+            dir.path(),
+            "Script.cs",
+            "using System;\npublic class Foo {}",
+        );
         let h = scan_file(&path).unwrap();
         assert!(h.namespace.is_none());
         assert_eq!(ns(&h.usings), vec!["System"]);

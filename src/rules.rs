@@ -43,7 +43,10 @@ mod tests {
     #[test]
     fn resolve_layer_glob() {
         let layers = vec![layer("Domain", &["*.Domain"])];
-        assert_eq!(resolve_layer("MyApp.Domain", &layers).unwrap().name, "Domain");
+        assert_eq!(
+            resolve_layer("MyApp.Domain", &layers).unwrap().name,
+            "Domain"
+        );
         assert!(resolve_layer("MyApp.Api", &layers).is_none());
     }
 

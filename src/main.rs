@@ -66,7 +66,10 @@ enum Commands {
 fn resolve_config(root: &str, config: &str) -> String {
     let p = std::path::Path::new(config);
     if p.is_relative() {
-        std::path::Path::new(root).join(p).to_string_lossy().into_owned()
+        std::path::Path::new(root)
+            .join(p)
+            .to_string_lossy()
+            .into_owned()
     } else {
         config.to_owned()
     }
@@ -82,18 +85,15 @@ fn main() -> Result<()> {
     let config = resolve_config(&cli.root, &cli.config);
 
     match cli.command {
-        Commands::Check { strict, no_baseline } => {
-            commands::check::run(&cli.root, &config, strict, no_baseline)
-        }
-        Commands::Baseline => {
-            commands::baseline::run(&cli.root, &config)
-        }
+        Commands::Check {
+            strict,
+            no_baseline,
+        } => commands::check::run(&cli.root, &config, strict, no_baseline),
+        Commands::Baseline => commands::baseline::run(&cli.root, &config),
         Commands::Graph { format, output } => {
             commands::graph::run(&cli.root, &config, &format, output.as_deref())
         }
         Commands::Init => commands::init::run(&cli.root),
-        Commands::Explain { project } => {
-            commands::explain::run(&cli.root, &config, &project)
-        }
+        Commands::Explain { project } => commands::explain::run(&cli.root, &config, &project),
     }
 }

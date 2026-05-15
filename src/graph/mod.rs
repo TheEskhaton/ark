@@ -1,7 +1,7 @@
+use crate::parser::ProjectFile;
+use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use petgraph::graph::{DiGraph, NodeIndex};
-use crate::parser::ProjectFile;
 
 #[allow(dead_code)]
 pub struct SolutionGraph {
@@ -22,7 +22,9 @@ impl SolutionGraph {
 
         // Add edges
         for p in projects {
-            let Some(&from) = name_to_idx.get(&p.name) else { continue };
+            let Some(&from) = name_to_idx.get(&p.name) else {
+                continue;
+            };
 
             for pref in &p.project_refs {
                 // Derive the target project name from the resolved path stem
@@ -63,10 +65,10 @@ impl SolutionGraph {
     }
 
     pub fn to_dot(&self) -> String {
-        format!("{:?}", petgraph::dot::Dot::with_config(
-            &self.graph,
-            &[petgraph::dot::Config::EdgeNoLabel],
-        ))
+        format!(
+            "{:?}",
+            petgraph::dot::Dot::with_config(&self.graph, &[petgraph::dot::Config::EdgeNoLabel],)
+        )
     }
 }
 
@@ -77,8 +79,8 @@ fn sanitize_id(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::csproj::ProjectRef;
     use crate::parser::ProjectFile;
+    use crate::parser::csproj::ProjectRef;
 
     fn proj(name: &str, refs: Vec<&str>) -> ProjectFile {
         ProjectFile {

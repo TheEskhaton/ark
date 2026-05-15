@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use miette::Result;
 use tracing_subscriber::EnvFilter;
 
+mod baseline;
 mod commands;
 mod config;
 mod graph;

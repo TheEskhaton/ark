@@ -1,3 +1,4 @@
+use crate::baseline::BaselineEntry;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
@@ -17,6 +18,7 @@ pub struct Violation {
 /// Aggregate result of an `ark check` run.
 pub struct CheckReport {
     pub violations: Vec<Violation>,
+    pub violation_keys: Vec<BaselineEntry>,
     pub warnings: Vec<String>,
 }
 
@@ -24,6 +26,7 @@ impl CheckReport {
     pub fn new() -> Self {
         CheckReport {
             violations: Vec::new(),
+            violation_keys: Vec::new(),
             warnings: Vec::new(),
         }
     }

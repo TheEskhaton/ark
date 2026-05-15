@@ -35,7 +35,7 @@ Violations are reported with source spans pointing directly to the offending lin
 # 1. Generate a starter config in your solution root
 ark init
 
-# 2. Edit architecture.pkl to match your layers, then:
+# 2. Edit architecture.toml to match your layers, then:
 ark check
 ```
 
@@ -172,7 +172,7 @@ ark graph --format dot -o graph.dot     # Graphviz DOT file
 
 ### `ark init`
 
-Generate a starter `architecture.pkl` in the solution root.
+Generate a starter `architecture.toml` in the solution root.
 
 ```bash
 cd /path/to/solution
@@ -200,7 +200,7 @@ ark exits `0` on clean, `1` on violations — no external dependencies required.
 
 ```
 ark --root <path>     # solution root (default: current directory)
-ark --config <path>   # config file (default: architecture.pkl)
+ark --config <path>   # config file (default: architecture.toml)
 ```
 
 These apply to all subcommands and are useful when running ark from a different directory:

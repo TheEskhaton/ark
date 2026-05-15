@@ -20,6 +20,7 @@ pub struct ProjectRef {
     pub resolved: Option<PathBuf>,
 }
 
+#[allow(dead_code)]
 impl ProjectRef {
     pub fn new(include: String, resolved: Option<PathBuf>) -> Self {
         ProjectRef { include, include_span: (0, 0), resolved }
@@ -35,6 +36,7 @@ pub struct PackageRef {
     pub version: String,
 }
 
+#[allow(dead_code)]
 impl PackageRef {
     pub fn new(name: String, version: String) -> Self {
         PackageRef { name, name_span: (0, 0), version }

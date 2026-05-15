@@ -49,6 +49,11 @@ enum Commands {
     },
     /// Generate a starter architecture.pkl in the current directory
     Init,
+    /// Show which layer a project belongs to and what it can depend on
+    Explain {
+        /// Project name to look up (e.g. MyApp.Domain)
+        project: String,
+    },
 }
 
 #[tokio::main]
@@ -68,5 +73,8 @@ async fn main() -> Result<()> {
             commands::graph::run(&cli.root, &cli.config, &format, output.as_deref()).await
         }
         Commands::Init => commands::init::run(&cli.root).await,
+        Commands::Explain { project } => {
+            commands::explain::run(&cli.root, &cli.config, &project).await
+        }
     }
 }

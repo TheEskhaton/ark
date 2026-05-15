@@ -7,6 +7,7 @@ mod config;
 mod graph;
 mod parser;
 mod report;
+mod rules;
 mod scanner;
 
 #[derive(Parser)]

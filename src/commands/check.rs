@@ -5,6 +5,7 @@ use rayon::prelude::*;
 use crate::config::{load_config, ArchitectureConfig, Layer};
 use crate::parser::{discover_projects, ProjectFile};
 use crate::report::{CheckReport, Violation};
+use crate::rules::{resolve_layer, resolve_layer_by_namespace};
 use crate::scanner;
 
 pub async fn run(root: &str, config_path: &str, strict: bool) -> Result<()> {
@@ -39,16 +40,6 @@ pub async fn run(root: &str, config_path: &str, strict: bool) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn resolve_layer<'a>(project_name: &str, layers: &'a [Layer]) -> Option<&'a Layer> {
-    layers.iter().find(|l| {
-        l.patterns.iter().any(|pat| {
-            glob::Pattern::new(pat)
-                .map(|p| p.matches(project_name))
-                .unwrap_or(false)
-        })
-    })
 }
 
 fn check_dependency_rules(
@@ -159,16 +150,6 @@ fn check_source_rules(
     }
 
     Ok(())
-}
-
-fn resolve_layer_by_namespace<'a>(ns: &str, layers: &'a [Layer]) -> Option<&'a Layer> {
-    layers.iter().find(|l| {
-        l.namespace_patterns.iter().any(|pat| {
-            glob::Pattern::new(pat)
-                .map(|p| p.matches(ns))
-                .unwrap_or(false)
-        })
-    })
 }
 
 #[cfg(test)]

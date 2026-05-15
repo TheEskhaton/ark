@@ -62,6 +62,16 @@ enum Commands {
     },
 }
 
+/// Resolve a config path that may be relative against the solution root.
+fn resolve_config(root: &str, config: &str) -> String {
+    let p = std::path::Path::new(config);
+    if p.is_relative() {
+        std::path::Path::new(root).join(p).to_string_lossy().into_owned()
+    } else {
+        config.to_owned()
+    }
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
@@ -69,20 +79,21 @@ fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
+    let config = resolve_config(&cli.root, &cli.config);
 
     match cli.command {
         Commands::Check { strict, no_baseline } => {
-            commands::check::run(&cli.root, &cli.config, strict, no_baseline)
+            commands::check::run(&cli.root, &config, strict, no_baseline)
         }
         Commands::Baseline => {
-            commands::baseline::run(&cli.root, &cli.config)
+            commands::baseline::run(&cli.root, &config)
         }
         Commands::Graph { format, output } => {
-            commands::graph::run(&cli.root, &cli.config, &format, output.as_deref())
+            commands::graph::run(&cli.root, &config, &format, output.as_deref())
         }
         Commands::Init => commands::init::run(&cli.root),
         Commands::Explain { project } => {
-            commands::explain::run(&cli.root, &cli.config, &project)
+            commands::explain::run(&cli.root, &config, &project)
         }
     }
 }

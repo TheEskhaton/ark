@@ -6,11 +6,11 @@ use crate::config::load_config;
 use crate::graph::SolutionGraph;
 use crate::parser::{discover_projects, ProjectFile};
 
-pub async fn run(root: &str, config_path: &str, format: &str, output: Option<&str>) -> Result<()> {
+pub fn run(root: &str, config_path: &str, format: &str, output: Option<&str>) -> Result<()> {
     let root = Path::new(root);
 
     // Config is optional for the graph command
-    let _config = load_config(Path::new(config_path)).await.ok();
+    let _config = load_config(Path::new(config_path)).ok();
 
     let project_paths = discover_projects(root)?;
 

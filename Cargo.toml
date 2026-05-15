@@ -40,12 +40,8 @@ glob = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Async runtime (for pkl-rust)
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-
-# Pkl configuration language
-pklrust = "0.9"
-pklrust-derive = "0.9"
+# TOML configuration parsing
+toml = "0.8"
 
 # Source scanner — C# AST
 tree-sitter = "0.26"

@@ -60,79 +60,78 @@ cargo build --release
 
 ## Configuration
 
-ark reads `architecture.pkl` (or `architecture.json` as a fallback) from the solution root.
+ark reads `architecture.toml` from the solution root. Run `ark init` to generate a starter file, or write one by hand:
 
-### Pkl (recommended)
+```toml
+[[layers]]
+name = "Domain"
+patterns = ["*.Domain", "*.Core"]
+# Optional: enables C# using-directive checks for this layer
+namespace_patterns = ["MyApp.Domain.*"]
 
-[Pkl](https://pkl-lang.org) is Apple's typed configuration language. `ark init` generates a starter file:
+[[layers]]
+name = "Application"
+patterns = ["*.Application", "*.UseCases"]
 
-```pkl
-amends "pkl/ark.pkl"
+[[layers]]
+name = "Infrastructure"
+patterns = ["*.Infrastructure"]
 
-layers {
-  new { name = "Domain";         patterns { "*.Domain"; "*.Core" }         }
-  new { name = "Application";    patterns { "*.Application"; "*.UseCases" } }
-  new { name = "Infrastructure"; patterns { "*.Infrastructure" }            }
-  new { name = "Presentation";   patterns { "*.Api"; "*.Web"; "*.Host" }    }
-}
+[[layers]]
+name = "Presentation"
+patterns = ["*.Api", "*.Web", "*.Host"]
 
-dependencyRules {
-  new { from = "Presentation";   to = "Application";   allowed = true  }
-  new { from = "Application";    to = "Domain";         allowed = true  }
-  new { from = "Infrastructure"; to = "Domain";         allowed = true  }
-  new { from = "Domain";         to = "Application";    allowed = false }
-  new { from = "Domain";         to = "Infrastructure"; allowed = false }
-  new { from = "Presentation";   to = "Infrastructure"; allowed = false }
-}
+[[dependency_rules]]
+from = "Presentation"
+to = "Application"
+allowed = true
 
-packagePolicies {
-  new {
-    layer = "Domain"
-    forbidden { "Microsoft.EntityFrameworkCore"; "Microsoft.AspNetCore" }
-  }
-}
+[[dependency_rules]]
+from = "Application"
+to = "Domain"
+allowed = true
 
-ignorePatterns { "*.Tests"; "*.Specs"; "*.IntegrationTests" }
+[[dependency_rules]]
+from = "Infrastructure"
+to = "Domain"
+allowed = true
+
+[[dependency_rules]]
+from = "Domain"
+to = "Infrastructure"
+allowed = false
+
+[[package_policies]]
+layer = "Domain"
+forbidden = ["Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore"]
+
+ignore_patterns = ["*.Tests", "*.Specs", "*.IntegrationTests"]
 ```
 
-Layer patterns use glob syntax (`*` matches any sequence of non-separator characters). Any dependency not listed in `dependencyRules` is **forbidden by default**.
+Layer patterns use glob syntax (`*` matches any sequence of non-separator characters). Any dependency not listed in `dependency_rules` is **forbidden by default**.
 
-`namespacePatterns` activates the C# source scan for a layer:
+`namespace_patterns` activates the C# source scan for a layer — omit it to skip tree-sitter parsing for that layer.
 
-```pkl
-new {
-  name = "Domain"
-  patterns { "*.Domain" }
-  namespacePatterns { "MyApp.Domain.*"; "MyApp.Domain" }
-}
+### JSON fallback
+
+ark also accepts `architecture.json` when passed explicitly via `--config`:
+
+```bash
+ark --config architecture.json check
 ```
-
-Omit `namespacePatterns` to skip tree-sitter parsing for that layer.
-
-### JSON sidecar (no Pkl CLI required)
-
-Name the file `architecture.json` alongside `architecture.pkl`. ark falls back to it automatically if the Pkl CLI is not installed — useful for CI environments where installing Pkl is inconvenient.
 
 ```json
 {
   "layers": [
-    {
-      "name": "Domain",
-      "patterns": ["*.Domain", "*.Core"],
-      "namespacePatterns": ["MyApp.Domain.*"]
-    },
-    {
-      "name": "Infrastructure",
-      "patterns": ["*.Infrastructure"]
-    }
+    { "name": "Domain", "patterns": ["*.Domain"], "namespace_patterns": ["MyApp.Domain.*"] }
   ],
-  "dependencyRules": [
+  "dependency_rules": [
     { "from": "Domain", "to": "Infrastructure", "allowed": false }
   ],
-  "packagePolicies": [
+  "package_policies": [
     { "layer": "Domain", "forbidden": ["Microsoft.EntityFrameworkCore"] }
   ],
-  "ignorePatterns": ["*.Tests", "*.Specs"]
+  "ignore_patterns": ["*.Tests"]
 }
 ```
 
@@ -215,14 +214,7 @@ ark init
     ark check
 ```
 
-Or with the JSON sidecar (no Pkl CLI needed):
-
-```yaml
-- name: Check architecture
-  run: ark check --config architecture.json
-```
-
-ark exits `0` on clean, `1` on violations — any CI system works out of the box.
+ark exits `0` on clean, `1` on violations — no external dependencies required.
 
 ---
 

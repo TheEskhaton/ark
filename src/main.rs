@@ -24,7 +24,7 @@ struct Cli {
     root: String,
 
     /// Path to the architecture config file
-    #[arg(short, long, default_value = "architecture.pkl")]
+    #[arg(short, long, default_value = "architecture.toml")]
     config: String,
 
     #[command(subcommand)]
@@ -53,7 +53,7 @@ enum Commands {
         #[arg(short, long)]
         output: Option<String>,
     },
-    /// Generate a starter architecture.pkl in the current directory
+    /// Generate a starter architecture.toml in the current directory
     Init,
     /// Show which layer a project belongs to and what it can depend on
     Explain {
@@ -62,8 +62,7 @@ enum Commands {
     },
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_writer(std::io::stderr)
@@ -73,17 +72,17 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Check { strict, no_baseline } => {
-            commands::check::run(&cli.root, &cli.config, strict, no_baseline).await
+            commands::check::run(&cli.root, &cli.config, strict, no_baseline)
         }
         Commands::Baseline => {
-            commands::baseline::run(&cli.root, &cli.config).await
+            commands::baseline::run(&cli.root, &cli.config)
         }
         Commands::Graph { format, output } => {
-            commands::graph::run(&cli.root, &cli.config, &format, output.as_deref()).await
+            commands::graph::run(&cli.root, &cli.config, &format, output.as_deref())
         }
-        Commands::Init => commands::init::run(&cli.root).await,
+        Commands::Init => commands::init::run(&cli.root),
         Commands::Explain { project } => {
-            commands::explain::run(&cli.root, &cli.config, &project).await
+            commands::explain::run(&cli.root, &cli.config, &project)
         }
     }
 }

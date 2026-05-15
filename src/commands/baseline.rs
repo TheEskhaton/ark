@@ -5,10 +5,10 @@ use crate::baseline;
 use crate::config::load_config;
 use super::check::collect;
 
-pub async fn run(root: &str, config_path: &str) -> Result<()> {
+pub fn run(root: &str, config_path: &str) -> Result<()> {
     let root_path = Path::new(root);
-    let config = load_config(Path::new(config_path)).await?;
-    let report = collect(root_path, &config).await?;
+    let config = load_config(Path::new(config_path))?;
+    let report = collect(root_path, &config)?;
 
     let baseline_path = root_path.join("ark-baseline.json");
     baseline::save(&baseline_path, &report.violation_keys)?;
@@ -27,25 +27,24 @@ mod tests {
     use crate::baseline::BaselineEntry;
     use std::fs;
 
-    #[tokio::test]
-    async fn writes_baseline_file_with_violation_keys() {
-        // Setup: Create a temporary directory with a minimal config
+    #[test]
+    fn writes_baseline_file_with_violation_keys() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().to_str().unwrap();
-        let config_path = dir.path().join("architecture.pkl");
+        let config_path = dir.path().join("architecture.toml");
 
-        // Create architecture.json (the fallback config format)
-        let json_path = dir.path().join("architecture.json");
-        let json_str = r#"{
-            "layers": [{"name": "Domain", "patterns": ["*.Domain"]}],
-            "dependencyRules": []
-        }"#;
-        fs::write(&json_path, json_str).unwrap();
+        let toml_str = r#"
+dependency_rules = []
+
+[[layers]]
+name = "Domain"
+patterns = ["*.Domain"]
+"#;
+        fs::write(&config_path, toml_str).unwrap();
 
         let config_path_str = config_path.to_str().unwrap();
 
-        // Act
-        let result = run(root, config_path_str).await;
+        let result = run(root, config_path_str);
 
         // Assert
         assert!(result.is_ok(), "run should succeed");

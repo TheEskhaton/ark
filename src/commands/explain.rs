@@ -7,9 +7,9 @@ use crate::config::model::ArchitectureConfig;
 use crate::parser::{discover_projects, ProjectFile};
 use crate::rules::{resolve_layer, is_ignored};
 
-pub async fn run(root: &str, config_path: &str, project: &str) -> Result<()> {
+pub fn run(root: &str, config_path: &str, project: &str) -> Result<()> {
     let root_path = Path::new(root);
-    let config = load_config(Path::new(config_path)).await?;
+    let config = load_config(Path::new(config_path))?;
 
     let project_paths = discover_projects(root_path)?;
     let projects: Vec<ProjectFile> = project_paths

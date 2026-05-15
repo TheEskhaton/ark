@@ -8,7 +8,7 @@ use crate::report::{CheckReport, Violation};
 use crate::rules::{resolve_layer, resolve_layer_by_namespace, is_ignored};
 use crate::scanner;
 
-pub async fn collect(root: &Path, config: &ArchitectureConfig) -> Result<CheckReport> {
+pub fn collect(root: &Path, config: &ArchitectureConfig) -> Result<CheckReport> {
     let project_paths = discover_projects(root)?;
     tracing::info!("Discovered {} projects", project_paths.len());
 
@@ -30,10 +30,10 @@ pub async fn collect(root: &Path, config: &ArchitectureConfig) -> Result<CheckRe
     Ok(report)
 }
 
-pub async fn run(root: &str, config_path: &str, strict: bool, no_baseline: bool) -> Result<()> {
+pub fn run(root: &str, config_path: &str, strict: bool, no_baseline: bool) -> Result<()> {
     let root_path = Path::new(root);
-    let config = load_config(Path::new(config_path)).await?;
-    let mut report = collect(root_path, &config).await?;
+    let config = load_config(Path::new(config_path))?;
+    let mut report = collect(root_path, &config)?;
 
     if !no_baseline {
         let baseline_path = root_path.join("ark-baseline.json");

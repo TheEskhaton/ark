@@ -47,7 +47,7 @@ if ($SolutionPath) {
     $Root = $Tmp
 }
 
-# ── 3. Write architecture.json ─────────────────────────────────────────────
+# ── 3. Write architecture.toml ─────────────────────────────────────────────
 #
 # ABP Framework layer mapping (simplified DDD):
 #   *.Domain.Shared          → DomainShared  (shared kernel, no deps on other layers)
@@ -62,70 +62,76 @@ if ($SolutionPath) {
 #   *.Web                    → Presentation
 #   *.Blazor                 → Presentation
 #
-$ConfigJson = @"
-{
-  "layers": [
-    {
-      "name": "DomainShared",
-      "patterns": ["*.Domain.Shared"]
-    },
-    {
-      "name": "Domain",
-      "patterns": ["*.Domain"]
-    },
-    {
-      "name": "Application",
-      "patterns": ["*.Application.Contracts", "*.Application"]
-    },
-    {
-      "name": "Infrastructure",
-      "patterns": ["*.EntityFrameworkCore", "*.MongoDB", "*.Dapper"]
-    },
-    {
-      "name": "Presentation",
-      "patterns": ["*.HttpApi", "*.HttpApi.Client", "*.Web", "*.Blazor"]
-    }
-  ],
-  "dependencyRules": [
-    { "from": "Presentation",   "to": "Application",   "allowed": true  },
-    { "from": "Presentation",   "to": "Domain",        "allowed": false },
-    { "from": "Presentation",   "to": "Infrastructure","allowed": false },
-    { "from": "Infrastructure", "to": "Domain",        "allowed": true  },
-    { "from": "Infrastructure", "to": "Application",   "allowed": false },
-    { "from": "Application",    "to": "Domain",        "allowed": true  },
-    { "from": "Application",    "to": "DomainShared",  "allowed": true  },
-    { "from": "Application",    "to": "Infrastructure","allowed": false },
-    { "from": "Domain",         "to": "DomainShared",  "allowed": true  },
-    { "from": "Domain",         "to": "Infrastructure","allowed": false },
-    { "from": "Domain",         "to": "Application",   "allowed": false },
-    { "from": "DomainShared",   "to": "Domain",        "allowed": false },
-    { "from": "DomainShared",   "to": "Application",   "allowed": false },
-    { "from": "DomainShared",   "to": "Infrastructure","allowed": false }
-  ],
-  "packagePolicies": [
-    {
-      "layer": "Domain",
-      "forbidden": ["Microsoft.EntityFrameworkCore", "MongoDB.Driver"]
-    },
-    {
-      "layer": "DomainShared",
-      "forbidden": ["Microsoft.EntityFrameworkCore", "MongoDB.Driver"]
-    }
-  ],
-  "ignorePatterns": [
+$ConfigToml = @"
+[[layers]]
+name = "DomainShared"
+patterns = ["*.Domain.Shared"]
+
+[[layers]]
+name = "Domain"
+patterns = ["*.Domain"]
+
+[[layers]]
+name = "Application"
+patterns = ["*.Application.Contracts", "*.Application"]
+
+[[layers]]
+name = "Infrastructure"
+patterns = ["*.EntityFrameworkCore", "*.MongoDB", "*.Dapper"]
+
+[[layers]]
+name = "Presentation"
+patterns = ["*.HttpApi", "*.HttpApi.Client", "*.Web", "*.Blazor"]
+
+[[dependency_rules]]
+from = "Presentation"; to = "Application";    allowed = true
+[[dependency_rules]]
+from = "Presentation"; to = "Domain";         allowed = false
+[[dependency_rules]]
+from = "Presentation"; to = "Infrastructure"; allowed = false
+[[dependency_rules]]
+from = "Infrastructure"; to = "Domain";       allowed = true
+[[dependency_rules]]
+from = "Infrastructure"; to = "Application";  allowed = false
+[[dependency_rules]]
+from = "Application"; to = "Domain";          allowed = true
+[[dependency_rules]]
+from = "Application"; to = "DomainShared";    allowed = true
+[[dependency_rules]]
+from = "Application"; to = "Infrastructure";  allowed = false
+[[dependency_rules]]
+from = "Domain"; to = "DomainShared";         allowed = true
+[[dependency_rules]]
+from = "Domain"; to = "Infrastructure";       allowed = false
+[[dependency_rules]]
+from = "Domain"; to = "Application";          allowed = false
+[[dependency_rules]]
+from = "DomainShared"; to = "Domain";         allowed = false
+[[dependency_rules]]
+from = "DomainShared"; to = "Application";    allowed = false
+[[dependency_rules]]
+from = "DomainShared"; to = "Infrastructure"; allowed = false
+
+[[package_policies]]
+layer = "Domain"
+forbidden = ["Microsoft.EntityFrameworkCore", "MongoDB.Driver"]
+
+[[package_policies]]
+layer = "DomainShared"
+forbidden = ["Microsoft.EntityFrameworkCore", "MongoDB.Driver"]
+
+ignore_patterns = [
     "*.Tests", "*.Test", "*.Testing",
     "*.Samples", "*.Sample",
     "*.Demo", "*.Template"
-  ]
-}
+]
 "@
 
-$ConfigPath = Join-Path $Root "architecture.json"
-$ConfigJson | Set-Content $ConfigPath -Encoding UTF8
+$ConfigPath = Join-Path $Root "architecture.toml"
+$ConfigToml | Set-Content $ConfigPath -Encoding UTF8
 Write-Host "Config written to $ConfigPath" -ForegroundColor DarkGray
 
-# Use a non-existent .pkl path so ark falls back to the .json sidecar
-$PklPath = Join-Path $Root "architecture.pkl"
+$TomlPath = $ConfigPath
 
 # ── 4. Helpers ─────────────────────────────────────────────────────────────
 function Run-Step {
@@ -153,36 +159,36 @@ $ExplainTarget = "Volo.Abp.Identity.Domain"
 
 # ── 6. Run all commands ────────────────────────────────────────────────────
 Run-Step "ark check (first run — expect violations if any)" {
-    & $ArkExe --root $Root --config $PklPath check
+    & $ArkExe --root $Root --config $TomlPath check
 }
 
 Run-Step "ark graph --format mermaid (stdout, first 30 lines)" {
-    & $ArkExe --root $Root --config $PklPath graph | Select-Object -First 30
+    & $ArkExe --root $Root --config $TomlPath graph | Select-Object -First 30
     Write-Host "  ... (truncated)"
 }
 
 Run-Step "ark graph --format dot -o graph.dot" {
     $OutFile = Join-Path $Root "graph.dot"
-    & $ArkExe --root $Root --config $PklPath graph --format dot --output $OutFile
+    & $ArkExe --root $Root --config $TomlPath graph --format dot --output $OutFile
     if (Test-Path $OutFile) {
         Write-Host "  Written: $OutFile ($(((Get-Item $OutFile).Length)) bytes)"
     }
 }
 
 Run-Step "ark explain $ExplainTarget" {
-    & $ArkExe --root $Root --config $PklPath explain $ExplainTarget
+    & $ArkExe --root $Root --config $TomlPath explain $ExplainTarget
 }
 
 Run-Step "ark baseline (snapshot current violations)" {
-    & $ArkExe --root $Root --config $PklPath baseline
+    & $ArkExe --root $Root --config $TomlPath baseline
 }
 
 Run-Step "ark check (after baseline — should report 0 new violations)" {
-    & $ArkExe --root $Root --config $PklPath check
+    & $ArkExe --root $Root --config $TomlPath check
 }
 
 Run-Step "ark check --no-baseline (ignore baseline — violations reappear)" {
-    & $ArkExe --root $Root --config $PklPath check --no-baseline
+    & $ArkExe --root $Root --config $TomlPath check --no-baseline
 }
 
 # ── 7. Project count summary ───────────────────────────────────────────────

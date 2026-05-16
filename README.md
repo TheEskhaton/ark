@@ -32,11 +32,11 @@ Violations are reported with source spans pointing directly to the offending lin
 ## Quick start
 
 ```bash
-# 1. Generate a starter config in your solution root
+# 1. Scaffold architecture.toml interactively
 cd /path/to/your/solution
 ark init
 
-# 2. Edit architecture.toml to match your layers, then:
+# 2. Check for violations
 ark check
 ```
 
@@ -163,11 +163,20 @@ ark graph --format dot -o graph.dot     # Graphviz DOT file
 
 ### `ark init`
 
-Generate a starter `architecture.toml` in the solution root.
+Interactively scaffold `architecture.toml` from your real solution structure.
 
 ```bash
 ark init
 ```
+
+The wizard:
+1. Scans all `.csproj` files and builds a dependency graph
+2. Groups projects into architectural tiers by topological depth
+3. Walks you through naming each tier as a layer
+4. Reviews each detected inter-layer dependency — allow or forbid
+5. Writes `architecture.toml` tailored to your solution
+
+For brownfield teams with existing violations, run `ark baseline` right after to snapshot the current state.
 
 ---
 

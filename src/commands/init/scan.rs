@@ -142,6 +142,48 @@ fn resolve_ref_name(pref: &ProjectRef) -> String {
         })
 }
 
+pub fn suggest_layer_name(projects: &[&str]) -> &'static str {
+    let score = |hints: &[&str]| projects.iter().filter(|p| hints.iter().any(|h| p.ends_with(h))).count();
+    [
+        (score(&[".Domain", ".Core", ".Entities"]), "Domain"),
+        (score(&[".Application", ".UseCases", ".Services"]), "Application"),
+        (score(&[".Infrastructure", ".Persistence", ".Adapters"]), "Infrastructure"),
+        (score(&[".Api", ".Web", ".Host"]), "Presentation"),
+    ]
+    .iter()
+    .filter(|(s, _)| *s > 0)
+    .max_by_key(|(s, _)| *s)
+    .map(|(_, name)| *name)
+    .unwrap_or("Layer")
+}
+
+pub fn compute_inter_layer_edges(layers: &[LayerDef], projects: &[ProjectFile]) -> Vec<InterLayerEdge> {
+    let project_to_layer: HashMap<String, usize> = layers.iter().enumerate()
+        .flat_map(|(i, l)| l.projects.iter().map(move |p| (p.clone(), i)))
+        .collect();
+
+    let mut counts: HashMap<(usize, usize), usize> = HashMap::new();
+    for p in projects {
+        let Some(&from_idx) = project_to_layer.get(&p.name) else { continue };
+        for pref in &p.project_refs {
+            let target = resolve_ref_name(pref);
+            let Some(&to_idx) = project_to_layer.get(&target) else { continue };
+            if from_idx != to_idx {
+                *counts.entry((from_idx, to_idx)).or_insert(0) += 1;
+            }
+        }
+    }
+
+    let mut edges: Vec<InterLayerEdge> = counts.into_iter().map(|((fi, ti), count)| InterLayerEdge {
+        from: layers[fi].name.clone(),
+        to: layers[ti].name.clone(),
+        ref_count: count,
+        unusual: fi < ti,
+    }).collect();
+    edges.sort_by(|a, b| a.from.cmp(&b.from).then(a.to.cmp(&b.to)));
+    edges
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,5 +275,57 @@ mod tests {
         let domain_tier = result.tiers.iter().position(|t| t.contains(&"MyApp.Domain".to_string())).unwrap();
         let a_tier = result.tiers.iter().position(|t| t.contains(&"A".to_string())).unwrap();
         assert!(a_tier > domain_tier, "cycle members should be placed above genuine leaf projects");
+    }
+
+    #[test]
+    fn suggests_domain() {
+        assert_eq!(suggest_layer_name(&["MyApp.Domain", "MyApp.Core"]), "Domain");
+    }
+
+    #[test]
+    fn suggests_presentation() {
+        assert_eq!(suggest_layer_name(&["MyApp.Api"]), "Presentation");
+    }
+
+    #[test]
+    fn fallback_layer() {
+        assert_eq!(suggest_layer_name(&["MyApp.Weird"]), "Layer");
+    }
+
+    #[test]
+    fn inter_layer_edges_counted() {
+        let projects = vec![proj("MyApp.Api", vec!["MyApp.Domain"]), proj("MyApp.Domain", vec![])];
+        let layers = vec![
+            LayerDef { name: "Domain".into(), projects: vec!["MyApp.Domain".into()] },
+            LayerDef { name: "Presentation".into(), projects: vec!["MyApp.Api".into()] },
+        ];
+        let edges = compute_inter_layer_edges(&layers, &projects);
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].from, "Presentation");
+        assert_eq!(edges[0].to, "Domain");
+        assert_eq!(edges[0].ref_count, 1);
+        assert!(!edges[0].unusual);
+    }
+
+    #[test]
+    fn unusual_edge_flagged() {
+        // Domain (idx 0) depends on Presentation (idx 1) — lower depends on higher = unusual
+        let projects = vec![proj("MyApp.Domain", vec!["MyApp.Api"]), proj("MyApp.Api", vec![])];
+        let layers = vec![
+            LayerDef { name: "Domain".into(), projects: vec!["MyApp.Domain".into()] },
+            LayerDef { name: "Presentation".into(), projects: vec!["MyApp.Api".into()] },
+        ];
+        let edges = compute_inter_layer_edges(&layers, &projects);
+        assert_eq!(edges.len(), 1);
+        assert!(edges[0].unusual);
+    }
+
+    #[test]
+    fn same_layer_refs_excluded() {
+        let projects = vec![proj("MyApp.Domain", vec!["MyApp.Core"]), proj("MyApp.Core", vec![])];
+        let layers = vec![
+            LayerDef { name: "Domain".into(), projects: vec!["MyApp.Domain".into(), "MyApp.Core".into()] },
+        ];
+        assert!(compute_inter_layer_edges(&layers, &projects).is_empty());
     }
 }

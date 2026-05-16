@@ -26,7 +26,8 @@ pub fn build_toml(answers: &WizardAnswers) -> Result<String> {
             .join(", ");
         out.push_str(&format!(
             "  {{ name = \"{}\", patterns = [{}] }},\n",
-            toml_escape(&layer.name), pats
+            toml_escape(&layer.name),
+            pats
         ));
     }
     out.push_str("]\n\n");
@@ -36,7 +37,9 @@ pub fn build_toml(answers: &WizardAnswers) -> Result<String> {
     for (from, to, allowed) in &answers.rules {
         out.push_str(&format!(
             "  {{ from = \"{}\", to = \"{}\", allowed = {} }},\n",
-            toml_escape(from), toml_escape(to), allowed
+            toml_escape(from),
+            toml_escape(to),
+            allowed
         ));
     }
     out.push_str("]\n");
@@ -47,7 +50,8 @@ pub fn build_toml(answers: &WizardAnswers) -> Result<String> {
         for (layer, pkg) in &answers.package_policies {
             out.push_str(&format!(
                 "  {{ layer = \"{}\", forbidden = [\"{}\"] }},\n",
-                toml_escape(layer), toml_escape(pkg)
+                toml_escape(layer),
+                toml_escape(pkg)
             ));
         }
         out.push_str("]\n");

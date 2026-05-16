@@ -1,4 +1,4 @@
-use crate::commands::init::scan::{suggest_layer_name, InterLayerEdge, LayerDef, ScanResult};
+use crate::commands::init::scan::{InterLayerEdge, LayerDef, ScanResult, suggest_layer_name};
 use dialoguer::{Confirm, Input, MultiSelect, Select};
 use miette::{IntoDiagnostic, Result};
 
@@ -15,7 +15,9 @@ pub fn run_layer_wizard(scan: &ScanResult) -> Result<Vec<LayerDef>> {
         for group in &scan.cycles {
             println!("   {}", group.join(" ↔ "));
         }
-        println!("   Consider resolving these — they usually indicate layer boundary violations.\n");
+        println!(
+            "   Consider resolving these — they usually indicate layer boundary violations.\n"
+        );
     }
 
     let mut confirmed: Vec<LayerDef> = Vec::new();
@@ -170,6 +172,7 @@ pub fn run_rules_wizard(edges: &[InterLayerEdge]) -> Result<Vec<(String, String,
     Ok(rules)
 }
 
+#[allow(clippy::type_complexity)]
 pub fn run_finish_wizard(
     test_projects: &[String],
     layers: &[LayerDef],

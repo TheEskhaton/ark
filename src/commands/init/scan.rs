@@ -117,7 +117,8 @@ pub fn scan(projects: &[ProjectFile]) -> ScanResult {
         .flat_map(|p| p.project_refs.iter().map(|r| resolve_ref_name(r)))
         .filter(|n| non_test_set.contains(n))
         .collect();
-    let isolated: Vec<String> = non_test.iter()
+    // A project is a candidate for isolation if it has no out-edges and no in-edges.
+    let isolated_candidates: Vec<String> = non_test.iter()
         .filter(|p| {
             let out_count = p.project_refs.iter()
                 .map(|r| resolve_ref_name(r))
@@ -127,6 +128,29 @@ pub fn scan(projects: &[ProjectFile]) -> ScanResult {
         })
         .map(|p| p.name.clone())
         .collect();
+    // Only treat candidates as truly isolated when at least one other project has edges,
+    // i.e. don't mark everything isolated in a fully-disconnected or single-project solution.
+    let any_connected = non_test.iter().any(|p| {
+        let out_count = p.project_refs.iter()
+            .map(|r| resolve_ref_name(r))
+            .filter(|n| non_test_set.contains(n))
+            .count();
+        out_count > 0 || has_incoming.contains(&p.name)
+    });
+    let isolated: Vec<String> = if any_connected { isolated_candidates } else { vec![] };
+
+    // Remove isolated projects from tier buckets — they're handled separately by the wizard.
+    // Only remove if tier 0 would still have non-isolated members after the removal,
+    // so that a project which is the sole non-cycle leaf is not accidentally hidden.
+    if !isolated.is_empty() {
+        let t0_remaining = tiers.get(0).map(|t| t.iter().filter(|n| !isolated.contains(n)).count()).unwrap_or(0);
+        if t0_remaining > 0 {
+            if let Some(t0) = tiers.get_mut(0) {
+                t0.retain(|n| !isolated.contains(n));
+            }
+            tiers.retain(|t| !t.is_empty());
+        }
+    }
 
     ScanResult { tiers, isolated, test_projects: test_names, cycles }
 }
@@ -250,6 +274,22 @@ mod tests {
         ]);
         assert!(result.isolated.contains(&"MyApp.BuildTools".to_string()));
         assert!(!result.isolated.contains(&"MyApp.Domain".to_string()));
+    }
+
+    #[test]
+    fn isolated_projects_excluded_from_tiers() {
+        let projects = vec![
+            proj("MyApp.Api", vec!["MyApp.Domain"]),
+            proj("MyApp.Domain", vec![]),
+            proj("MyApp.BuildTools", vec![]),  // isolated
+        ];
+        let result = scan(&projects);
+        assert!(result.isolated.contains(&"MyApp.BuildTools".to_string()));
+        // BuildTools must NOT appear in any tier
+        assert!(!result.tiers.iter().any(|t| t.contains(&"MyApp.BuildTools".to_string())));
+        // Domain and Api are still in tiers
+        assert!(result.tiers[0].contains(&"MyApp.Domain".to_string()));
+        assert!(result.tiers[1].contains(&"MyApp.Api".to_string()));
     }
 
     #[test]

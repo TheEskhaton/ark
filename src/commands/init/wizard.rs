@@ -34,10 +34,15 @@ pub fn run_layer_wizard(scan: &ScanResult) -> Result<Vec<LayerDef>> {
         println!();
 
         let refs: Vec<&str> = tier_projects.iter().map(|s| s.as_str()).collect();
-        let suggestion = suggest_layer_name(&refs);
+        let raw = suggest_layer_name(&refs);
+        let suggestion = if raw == "Layer" {
+            format!("Layer{}", tier_idx)
+        } else {
+            raw.to_string()
+        };
         let name: String = Input::new()
             .with_prompt(format!("Layer name [{}]", suggestion))
-            .default(suggestion.to_string())
+            .default(suggestion.clone())
             .interact_text()
             .into_diagnostic()?;
 
@@ -82,10 +87,14 @@ pub fn run_layer_wizard(scan: &ScanResult) -> Result<Vec<LayerDef>> {
             }
         }
 
-        confirmed.push(LayerDef {
-            name,
-            projects: layer_projects,
-        });
+        if layer_projects.is_empty() {
+            println!("  (all projects moved, skipping this tier)");
+        } else {
+            confirmed.push(LayerDef {
+                name,
+                projects: layer_projects,
+            });
+        }
     }
 
     // Isolated projects

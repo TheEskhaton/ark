@@ -95,7 +95,7 @@ Assign to a layer or ignore? [ignore]: _
    MyApp.Domain ↔ MyApp.Application (2 references)
 
    These projects cannot be ranked by topology and will be grouped together.
-   Consider resolving these cycles — they indicate layer boundary violations.
+   Consider resolving these cycles — they usually indicate layer boundary violations.
 ```
 
 ---

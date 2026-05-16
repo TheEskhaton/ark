@@ -44,7 +44,11 @@ pub fn run_layer_wizard(scan: &ScanResult) -> Result<Vec<LayerDef>> {
         let mut layer_projects = tier_projects.clone();
 
         if Confirm::new()
-            .with_prompt("Move any projects to a different layer?")
+            .with_prompt(if confirmed.is_empty() {
+                "Move any projects out of this tier? (will be assigned after all tiers are processed)"
+            } else {
+                "Move any projects to an already-confirmed layer below?"
+            })
             .default(false)
             .interact()
             .into_diagnostic()?
@@ -59,21 +63,23 @@ pub fn run_layer_wizard(scan: &ScanResult) -> Result<Vec<LayerDef>> {
                 .map(|&i| tier_projects[i].clone())
                 .collect();
 
-            if confirmed.is_empty() {
-                pending.extend(to_move.iter().cloned());
-            } else {
-                let layer_names: Vec<String> =
-                    confirmed.iter().map(|l| l.name.clone()).collect();
-                for proj in &to_move {
-                    let idx = Select::new()
-                        .with_prompt(format!("Move '{}' to", proj))
-                        .items(&layer_names)
-                        .interact()
-                        .into_diagnostic()?;
-                    confirmed[idx].projects.push(proj.clone());
+            if !to_move.is_empty() {
+                if confirmed.is_empty() {
+                    pending.extend(to_move.iter().cloned());
+                } else {
+                    let layer_names: Vec<String> =
+                        confirmed.iter().map(|l| l.name.clone()).collect();
+                    for proj in &to_move {
+                        let idx = Select::new()
+                            .with_prompt(format!("Move '{}' to", proj))
+                            .items(&layer_names)
+                            .interact()
+                            .into_diagnostic()?;
+                        confirmed[idx].projects.push(proj.clone());
+                    }
                 }
+                layer_projects.retain(|p| !to_move.contains(p));
             }
-            layer_projects.retain(|p| !to_move.contains(p));
         }
 
         confirmed.push(LayerDef {
@@ -159,8 +165,7 @@ pub fn run_finish_wizard(
     test_projects: &[String],
     layers: &[LayerDef],
 ) -> Result<(Vec<String>, Vec<(String, String)>)> {
-    println!("\n─── Finishing up ");
-    println!("{}", "─".repeat(60));
+    println!("\n─── Finishing up ─────────────────────────────────────────");
 
     let mut ignore_patterns = Vec::new();
     if !test_projects.is_empty() {

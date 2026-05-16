@@ -6,7 +6,7 @@ use generator::{build_toml, WizardAnswers};
 use miette::{miette, IntoDiagnostic, Result};
 use scan::compute_inter_layer_edges;
 use std::path::Path;
-use wizard::{print_phase, run_finish_wizard, run_layer_wizard, run_rules_wizard};
+use wizard::{run_finish_wizard, run_layer_wizard, run_rules_wizard};
 
 pub fn run(root: &str) -> Result<()> {
     let dest = Path::new(root).join("architecture.toml");

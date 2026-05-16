@@ -94,13 +94,15 @@ pub fn scan(projects: &[ProjectFile]) -> ScanResult {
             }
         }
     }
-    // Place cycle members at max-dep-tier + 1
+    // Place cycle members at max-dep-tier + 1, or above all non-cycle tiers
+    let max_non_cycle_tier = tier_map.values().copied().max().unwrap_or(0);
     for group in &cycles {
         let t = group.iter()
             .flat_map(|name| non_test.iter().find(|p| &p.name == name))
             .flat_map(|p| p.project_refs.iter().map(|r| resolve_ref_name(r)))
             .filter_map(|d| tier_map.get(&d).copied())
-            .max().map(|m| m + 1).unwrap_or(0);
+            .max().map(|m| m + 1)
+            .unwrap_or(max_non_cycle_tier + 1);
         for name in group { tier_map.insert(name.clone(), t); }
     }
 
@@ -160,7 +162,7 @@ mod tests {
         assert!(!is_test_project("MyApp.TestHelpers"));
     }
 
-    use crate::parser::csproj::{PackageRef, ProjectRef};
+    use crate::parser::csproj::ProjectRef;
 
     fn proj(name: &str, deps: Vec<&str>) -> ProjectFile {
         ProjectFile {
@@ -215,5 +217,21 @@ mod tests {
         let cycle = &result.cycles[0];
         assert!(cycle.contains(&"A".to_string()));
         assert!(cycle.contains(&"B".to_string()));
+    }
+
+    #[test]
+    fn pure_cycle_placed_above_non_cycle_projects() {
+        // A ↔ B cycle with no external deps — should NOT land in tier 0
+        let projects = vec![
+            proj("MyApp.Domain", vec![]),      // tier 0 (leaf)
+            proj("A", vec!["B"]),              // cycle
+            proj("B", vec!["A"]),              // cycle
+        ];
+        let result = scan(&projects);
+        assert_eq!(result.cycles.len(), 1);
+        // Domain should be at tier 0; A and B should be above it
+        let domain_tier = result.tiers.iter().position(|t| t.contains(&"MyApp.Domain".to_string())).unwrap();
+        let a_tier = result.tiers.iter().position(|t| t.contains(&"A".to_string())).unwrap();
+        assert!(a_tier > domain_tier, "cycle members should be placed above genuine leaf projects");
     }
 }
